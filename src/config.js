@@ -1,4 +1,3 @@
-// src/config.js
 const isLocal = window.location.hostname === "localhost";
 
 export const BASE_URL = isLocal
