@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
+import { BASE_URL } from "./config";
 
-const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 
 const Login = () => {
