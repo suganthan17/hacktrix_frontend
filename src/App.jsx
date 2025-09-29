@@ -7,7 +7,7 @@ import Signup from "./auth/Signup";
 import StudentDashboard from "./pages/student/StudentDashBoard";
 import StudentCourses from "./pages/student/StudentCourses";
 import CourseDetail from "./pages/student/courseDetail";
-import StudentEnrolled from "./pages/student/StudentEnrolled";
+import EnrolledCourses from "./pages/student/EnrolledCourses";
 import StudentProjects from "./pages/student/StudentProjects";
 import StudentCertificates from "./pages/student/StudentCertificates";
 
@@ -40,7 +40,7 @@ function App() {
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/student-courses" element={<StudentCourses />} />
         <Route path="/courses/:id" element={<CourseDetail />} />
-        <Route path="/student-enrolled" element={<StudentEnrolled />} />
+        <Route path="/student-enrolled" element={<EnrolledCourses />} />
         <Route path="/student-projects" element={<StudentProjects />} />
         <Route path="/student-certificates" element={<StudentCertificates />} />
 

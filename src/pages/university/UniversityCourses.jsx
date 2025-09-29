@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import UniversitySidebar from "../../components/UniversitySidebar";
 import { BASE_URL } from "../../config";
+import UniversityStudents from "./UniversityStudents";
 
 export default function UniversityCourses() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedCourse, setSelectedCourse] = useState(null);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -27,7 +29,6 @@ export default function UniversityCourses() {
         setLoading(false);
       }
     };
-
     fetchCourses();
   }, []);
 
@@ -54,15 +55,6 @@ export default function UniversityCourses() {
     }
   };
 
-  const fmtDate = (d) => {
-    if (!d) return "—";
-    try {
-      return new Date(d).toLocaleDateString();
-    } catch {
-      return "—";
-    }
-  };
-
   return (
     <div className="flex w-full min-h-screen bg-gray-50">
       <UniversitySidebar />
@@ -73,28 +65,7 @@ export default function UniversityCourses() {
           </h1>
 
           {loading ? (
-            <div className="flex items-center justify-center h-40">
-              <svg
-                className="animate-spin h-10 w-10 text-slate-600"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8z"
-                ></path>
-              </svg>
-            </div>
+            <div className="flex items-center justify-center h-40">Loading courses…</div>
           ) : error ? (
             <div className="text-red-600 bg-red-50 p-4 rounded-md">{error}</div>
           ) : courses.length === 0 ? (
@@ -118,7 +89,7 @@ export default function UniversityCourses() {
                       </p>
                     </div>
                     <div className="text-sm text-slate-400">
-                      {fmtDate(course.createdAt)}
+                      {new Date(course.createdAt).toLocaleDateString()}
                     </div>
                   </div>
 
@@ -136,26 +107,34 @@ export default function UniversityCourses() {
                     <div>
                       <div className="text-xs text-slate-400">Schedule</div>
                       <div className="font-medium">
-                        {fmtDate(course.startDate)} — {fmtDate(course.endDate)}
+                        {new Date(course.startDate).toLocaleDateString()} —{" "}
+                        {new Date(course.endDate).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between">
-                    <div className="text-xs text-slate-400">
-                      Students enrolled
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleDelete(course._id || course.id)}
-                        className="px-3 py-1 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 transition"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                  <div className="mt-5 flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedCourse(course._id)}
+                      className="px-3 py-1 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition"
+                    >
+                      View Students
+                    </button>
+                    <button
+                      onClick={() => handleDelete(course._id || course.id)}
+                      className="px-3 py-1 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 transition"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+
+          {selectedCourse && (
+            <div className="mt-8">
+              <UniversityStudents courseId={selectedCourse} />
             </div>
           )}
         </div>
