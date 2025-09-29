@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { BASE_URL } from "../config";
 
 const Login = () => {
@@ -16,37 +16,55 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(formData),
+      const loginPromise = (async () => {
+        const res = await fetch(`${BASE_URL}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(formData),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Login failed");
+
+        // Determine role from backend (support both shapes)
+        const role = data?.user?.role || data?.role || "";
+
+        // small delay so toast shows nicely, then navigate by role
+        setTimeout(() => {
+          toast.dismiss();
+          if (role === "university") {
+            navigate("/university-dashboard");
+          } else {
+            // treat everything else as student
+            navigate("/student-dashboard");
+          }
+        }, 800);
+
+        return data.message || "Login successful";
+      })();
+
+      await toast.promise(loginPromise, {
+        loading: "Logging in...",
+        success: (msg) => msg,
+        error: (err) => err.message || "Login failed",
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-
-      toast.success(data.message, { duration: 3000 });
-
-      if (data.role === "student") navigate("/student-dashboard");
-      else navigate("/university-dashboard");
     } catch (err) {
-      toast.error(err.message, { duration: 3000 });
+      toast.error(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-50 to-blue-100 font-sans">
-      <Toaster position="top-center" />
-      <div className="bg-white rounded-3xl shadow-xl p-10 max-w-md w-full">
-        <h1 className="text-3xl font-bold mb-2 text-center text-gray-900">
-          Welcome Back!
-        </h1>
-        <p className="text-center text-gray-600 mb-6">
-          Log in to continue to your MentorNet dashboard
-        </p>
+    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center px-4">
+      <div className="bg-white shadow-2xl rounded-3xl w-full max-w-lg p-8 sm:p-10">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Welcome Back!</h1>
+          <p className="text-gray-500 mt-2">
+            Log in to access your MentorNet dashboard.
+          </p>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-5">
           <input
             type="email"
@@ -55,7 +73,7 @@ const Login = () => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+            className="w-full p-4 border rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none"
           />
           <input
             type="password"
@@ -64,20 +82,21 @@ const Login = () => {
             value={formData.password}
             onChange={handleChange}
             required
-            className="w-full p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+            className="w-full p-4 border rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none"
           />
           <button
             type="submit"
             disabled={loading}
-            className="w-full p-4 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition"
+            className="w-full bg-indigo-600 text-white p-4 rounded-xl hover:bg-indigo-700 transition cursor-pointer"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-        <p className="text-center mt-6 text-gray-600">
+
+        <p className="text-center text-gray-500 mt-6">
           Don't have an account?{" "}
           <span
-            className="text-indigo-600 font-semibold cursor-pointer"
+            className="text-indigo-600 font-semibold cursor-pointer hover:underline"
             onClick={() => navigate("/signup")}
           >
             Signup

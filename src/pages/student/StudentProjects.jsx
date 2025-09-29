@@ -1,13 +1,12 @@
 import React from 'react'
 import StudentSidebar from '../../components/StudentSidebar'
 
-function StudentDashboard() {
+function StudentProjects() {
   return (
     <div className='flex'>
-      <StudentSidebar/>
-      
+      <StudentSidebr></StudentSidebr>
     </div>
   )
 }
 
-export default StudentDashboard
+export default StudentProjects

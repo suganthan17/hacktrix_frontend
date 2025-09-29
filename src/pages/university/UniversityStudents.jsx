@@ -1,7 +1,7 @@
 import React from 'react'
 import UniversitySidebar from '../../components/UniversitySidebar'
 
-function UniversityDashBoard() {
+function UniversityStudents() {
   return (
     <div className='flex'>
       <UniversitySidebar/>
@@ -9,4 +9,4 @@ function UniversityDashBoard() {
   )
 }
 
-export default UniversityDashBoard
+export default UniversityStudents
