@@ -17,6 +17,9 @@ import AddCourse from "./pages/university/AddCourse";
 import UniversityCourses from "./pages/university/UniversityCourses";
 import UniversityStudents from "./pages/university/UniversityStudents";
 
+// Quiz Page
+import TakeQuiz from "./pages/student/takeQuiz";
+
 import { Toaster } from "react-hot-toast";
 
 function App() {
@@ -43,6 +46,9 @@ function App() {
         <Route path="/student-enrolled" element={<EnrolledCourses />} />
         <Route path="/student-projects" element={<StudentProjects />} />
         <Route path="/student-certificates" element={<StudentCertificates />} />
+
+        {/* Quiz Route */}
+        <Route path="/quiz/:quizId" element={<TakeQuiz />} />
 
         {/* University Routes */}
         <Route path="/university-dashboard" element={<UniversityDashboard />} />

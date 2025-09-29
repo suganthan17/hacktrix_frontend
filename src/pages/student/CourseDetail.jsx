@@ -1,3 +1,4 @@
+// src/pages/student/CourseDetail.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StudentSidebar from "../../components/StudentSidebar";
@@ -6,26 +7,38 @@ import toast, { Toaster } from "react-hot-toast";
 const BACKEND_BASE = "http://localhost:5000";
 
 export default function CourseDetail() {
-  const { id } = useParams();
+  const { id } = useParams(); // courseId from route
   const navigate = useNavigate();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [quizzes, setQuizzes] = useState([]);
 
   useEffect(() => {
-    const loadCourse = async () => {
+    const fetchCourseAndQuizzes = async () => {
       try {
+        // 1️⃣ Fetch course details
         const res = await fetch(`${BACKEND_BASE}/api/courses/public/${id}`, {
           credentials: "include",
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Course not found");
-
-        if (!data.videoUrl) {
-          toast.error("You must enroll to access this course");
-          return navigate("/enrolled-courses");
-        }
-
         setCourse(data);
+
+        // 2️⃣ Fetch quizzes for this course
+        const quizRes = await fetch(
+          `${BACKEND_BASE}/api/quizzes/course/${id}`,
+          {
+            credentials: "include",
+          }
+        );
+        const quizData = await quizRes.json();
+        if (quizRes.ok && Array.isArray(quizData)) {
+          // ✅ remove duplicate quizzes by _id
+          const unique = quizData.filter(
+            (q, i, arr) => i === arr.findIndex((x) => x._id === q._id)
+          );
+          setQuizzes(unique);
+        }
       } catch (err) {
         toast.error(err.message);
         navigate("/enrolled-courses");
@@ -33,17 +46,9 @@ export default function CourseDetail() {
         setLoading(false);
       }
     };
-    loadCourse();
-  }, [id, navigate]);
 
-  const fmtDate = (d) => {
-    if (!d) return "—";
-    try {
-      return new Date(d).toLocaleDateString();
-    } catch {
-      return "—";
-    }
-  };
+    fetchCourseAndQuizzes();
+  }, [id, navigate]);
 
   if (loading) return <div className="p-6">Loading course…</div>;
   if (!course) return <div className="p-6">Course not found</div>;
@@ -53,51 +58,51 @@ export default function CourseDetail() {
       <StudentSidebar />
       <main className="flex-1 p-6 lg:p-12">
         <Toaster />
-        <div className="max-w-4xl mx-auto">
-
+        <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow space-y-6">
           {/* Back button */}
           <button
             onClick={() => navigate(-1)}
-            className="text-sm text-indigo-600 mb-6 hover:underline"
+            className="text-sm text-indigo-600 mb-4"
           >
-            ← Back to Courses
+            ← Back
           </button>
 
-          {/* Course Header */}
-          <div className="bg-white shadow rounded-2xl p-6 mb-6">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">{course.name}</h1>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
-              <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full">
-                {course.category || "General"}
-              </span>
-              {course.duration && (
-                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full">
-                  {course.duration} weeks
-                </span>
-              )}
-              {course.startDate && course.endDate && (
-                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full">
-                  {fmtDate(course.startDate)} — {fmtDate(course.endDate)}
-                </span>
-              )}
+          {/* Course details */}
+          <h1 className="text-2xl font-bold mb-2">{course.name}</h1>
+          <p className="text-sm text-gray-500">
+            {course.category || "General"}
+          </p>
+          <p className="text-gray-700">{course.description}</p>
+
+          {/* Video section */}
+          {course.videoUrl && (
+            <div className="rounded overflow-hidden mt-4">
+              <video
+                src={`${BACKEND_BASE}${course.videoUrl}`}
+                controls
+                className="w-full"
+                controlsList="nodownload"
+              />
             </div>
-          </div>
+          )}
 
-          {/* Video Section */}
-          <div className="bg-white shadow rounded-2xl overflow-hidden mb-6">
-            <video
-              controls
-              className="w-full h-96 object-cover"
-              src={`${BACKEND_BASE}${course.videoUrl}`}
-              controlsList="nodownload"
-            />
-          </div>
-
-          {/* Course Description */}
-          <div className="bg-white shadow rounded-2xl p-6">
-            <h2 className="text-xl font-semibold mb-4 text-slate-800">Course Overview</h2>
-            <p className="text-gray-700 leading-relaxed">{course.description}</p>
-          </div>
+          {/* Quiz section */}
+          {quizzes.length > 0 && (
+            <div className="mt-6">
+              <h2 className="text-xl font-bold mb-3">Quizzes</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {quizzes.map((q) => (
+                  <button
+                    key={q._id}
+                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                    onClick={() => navigate(`/quiz/${q._id}`)}
+                  >
+                    {q.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
