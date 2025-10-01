@@ -4,23 +4,26 @@ import Login from "./auth/Login";
 import Signup from "./auth/Signup";
 
 // Student Pages
-import StudentDashboard from "./pages/student/StudentDashBoard";
+import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentCourses from "./pages/student/StudentCourses";
 import CourseDetail from "./pages/student/courseDetail";
 import EnrolledCourses from "./pages/student/EnrolledCourses";
 import StudentProjects from "./pages/student/StudentProjects";
 import StudentCertificates from "./pages/student/StudentCertificates";
+import StudentProfile from "./pages/student/StudentProfile";
 
 // University Pages
 import UniversityDashboard from "./pages/university/UniversityDashboard";
 import AddCourse from "./pages/university/AddCourse";
 import UniversityCourses from "./pages/university/UniversityCourses";
 import UniversityStudents from "./pages/university/UniversityStudents";
+import UniversityProfile from "./pages/university/UniversityProfile";
 
 // Quiz Page
 import TakeQuiz from "./pages/student/takeQuiz";
 
 import { Toaster } from "react-hot-toast";
+
 
 function App() {
   return (
@@ -46,6 +49,7 @@ function App() {
         <Route path="/student-enrolled" element={<EnrolledCourses />} />
         <Route path="/student-projects" element={<StudentProjects />} />
         <Route path="/student-certificates" element={<StudentCertificates />} />
+        <Route path="/student-profile" element={<StudentProfile />} />
 
         {/* Quiz Route */}
         <Route path="/quiz/:quizId" element={<TakeQuiz />} />
@@ -55,6 +59,7 @@ function App() {
         <Route path="/university-courses" element={<UniversityCourses />} />
         <Route path="/university-addcourse" element={<AddCourse />} />
         <Route path="/university-students" element={<UniversityStudents />} />
+        <Route path="/university-profile" element={<UniversityProfile/>} />
 
         {/* 404 */}
         <Route
