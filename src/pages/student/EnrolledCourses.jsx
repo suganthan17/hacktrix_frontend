@@ -2,17 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentSidebar from "../../components/StudentSidebar";
 import toast, { Toaster } from "react-hot-toast";
-import { Play, Trash2, ArrowRight, User } from "lucide-react";
+import { Trash2, ArrowRight, User } from "lucide-react";
+import StudentProgressModal from "../../components/StudentProgressModal";
 
 const BACKEND_BASE = "http://localhost:5000";
-
-/**
- * Updated EnrolledCourses:
- * - Removed progress bars and "level" chips
- * - Removed descriptions and dates (still not displayed)
- * - Added colorful accents: gradient avatar, colored category pill
- * - Kept custom confirmation modal and existing logic
- */
 
 export default function EnrolledCourses() {
   const [courses, setCourses] = useState([]);
@@ -22,7 +15,27 @@ export default function EnrolledCourses() {
     courseId: null,
     name: "",
   });
+  const [me, setMe] = useState(null); // logged-in student info
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [progressCourse, setProgressCourse] = useState(null);
+
   const navigate = useNavigate();
+
+  // fetch currently logged-in user (so we know student id)
+  const fetchMe = async () => {
+    try {
+      const res = await fetch(`${BACKEND_BASE}/api/auth/me`, {
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      setMe(data);
+      return data;
+    } catch (err) {
+      console.error("fetchMe error:", err);
+      return null;
+    }
+  };
 
   const fetchEnrolledCourses = async () => {
     try {
@@ -32,9 +45,7 @@ export default function EnrolledCourses() {
       });
       if (!res.ok) throw new Error("Failed to fetch courses");
       const data = await res.json();
-      const enrolled = Array.isArray(data)
-        ? data.filter((c) => c.enrolled)
-        : [];
+      const enrolled = Array.isArray(data) ? data.filter((c) => c.enrolled) : [];
       setCourses(enrolled);
     } catch (err) {
       console.error(err);
@@ -45,7 +56,9 @@ export default function EnrolledCourses() {
   };
 
   useEffect(() => {
-    fetchEnrolledCourses();
+    // fetch both enrolled courses and current user
+    fetchMe().finally(() => fetchEnrolledCourses());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openCancelModal = (courseId, name) =>
@@ -73,24 +86,31 @@ export default function EnrolledCourses() {
     }
   };
 
-  // friendly palette for colorful accents
+  // Open progress modal for logged-in student and the selected course
+  const openProgressModal = (course) => {
+    if (!me?.email && !me?.id) {
+      toast.error("You must be logged in to view progress");
+      return;
+    }
+    setProgressCourse(course);
+    setProgressOpen(true);
+  };
+
   const PALETTE = [
-    ["#7C3AED", "#4C1D95"], // purple
-    ["#0EA5A4", "#065F46"], // teal/green
-    ["#F97316", "#C2410C"], // orange
-    ["#06B6D4", "#0E7490"], // cyan
-    ["#EF4444", "#B91C1C"], // red
-    ["#0EA5A4", "#065F46"], // repeating some pleasant combos
+    ["#7C3AED", "#4C1D95"],
+    ["#0EA5A4", "#065F46"],
+    ["#F97316", "#C2410C"],
+    ["#06B6D4", "#0E7490"],
+    ["#EF4444", "#B91C1C"],
+    ["#0EA5A4", "#065F46"],
     ["#4F46E5", "#4338CA"],
     ["#F43F5E", "#BE123C"],
   ];
 
   const pickGradient = (course, i) => {
-    // prefer category-based hash, else index
     const key = (course.category || course.name || "").toString();
     let idx = 0;
     for (let ch of key) idx = (idx * 31 + ch.charCodeAt(0)) % PALETTE.length;
-    // fallback to index if key empty
     idx = (typeof idx === "number" ? idx : i) % PALETTE.length;
     const [a, b] = PALETTE[idx];
     return `linear-gradient(135deg, ${a}, ${b})`;
@@ -115,7 +135,7 @@ export default function EnrolledCourses() {
                 Enrolled Courses
               </h1>
               <p className="text-sm text-slate-500 mt-1">
-                A colorful, compact view of your courses (no description/dates).
+                A colorful, compact view of your courses.
               </p>
             </div>
 
@@ -145,7 +165,7 @@ export default function EnrolledCourses() {
                 </div>
                 <div className="mt-6">
                   <button
-                    onClick={() => navigate("/courses")}
+                    onClick={() => navigate("/student-courses")}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                   >
                     Browse Courses
@@ -181,18 +201,16 @@ export default function EnrolledCourses() {
                             </div>
                           </div>
                         )}
-                        {/* subtle overlay */}
                         <div className="absolute inset-0 bg-black/6" />
                       </div>
 
-                      {/* Center: title + colorful category pill + instructor pill */}
+                      {/* Center: title + category pill + university pill */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="text-lg font-semibold text-slate-900 truncate">
                             {course.name}
                           </h3>
 
-                          {/* colorful category pill */}
                           <span
                             className="px-2 py-0.5 text-xs rounded-full font-medium"
                             style={{
@@ -207,28 +225,36 @@ export default function EnrolledCourses() {
                             {course.category || "General"}
                           </span>
 
-                          {/* instructor pill if present */}
-                          {course.instructor && (
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-white border border-slate-100 text-slate-700">
-                              {course.instructor}
+                          {course.university?.name && (
+                            <span className="px-2 py-0.5 text-xs rounded-full font-medium bg-slate-100 text-slate-700">
+                              {course.university.name}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Right: stacked actions (Open / Cancel) with colorful buttons */}
+                      {/* Right: actions */}
                       <div className="flex flex-col items-end gap-2">
-                        <button
-                          onClick={() => navigate(`/courses/${course._id}`)}
-                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-white"
-                          style={{
-                            background: pickGradient(course, idx),
-                            boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
-                          }}
-                        >
-                          <ArrowRight className="h-4 w-4" />
-                          Open
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigate(`/courses/${course._id}`)}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-white"
+                            style={{
+                              background: pickGradient(course, idx),
+                              boxShadow: "0 6px 18px rgba(15,23,42,0.08)",
+                            }}
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                            Open
+                          </button>
+
+                          <button
+                            onClick={() => openProgressModal(course)}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+                          >
+                            View Progress
+                          </button>
+                        </div>
 
                         <button
                           onClick={() =>
@@ -249,7 +275,6 @@ export default function EnrolledCourses() {
         </div>
       </main>
 
-      {/* Confirmation modal */}
       {confirm.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -282,6 +307,17 @@ export default function EnrolledCourses() {
             </div>
           </div>
         </div>
+      )}
+
+      {progressOpen && progressCourse && me && (
+        <StudentProgressModal
+          student={me} // expects { id, name, email } shape from /api/auth/me
+          courseId={progressCourse._id}
+          onClose={() => {
+            setProgressOpen(false);
+            setProgressCourse(null);
+          }}
+        />
       )}
     </div>
   );

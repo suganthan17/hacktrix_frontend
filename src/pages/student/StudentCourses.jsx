@@ -285,8 +285,10 @@ export default function StudentCourses() {
 
                 {/* Enroll */}
                 <div className="mt-5 flex items-center justify-between gap-3">
-                  <div className="text-xs text-slate-400">
-                    {course.instructor || "Instructor info unavailable"}
+                  <div className="text-xs text-slate-600 font-semibold">
+                    {course.university?.name ||
+                      course.universityName ||
+                      "University"}
                   </div>
 
                   <div>

@@ -1,21 +1,13 @@
-// src/pages/student/CourseDetail.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import StudentSidebar from "../../components/StudentSidebar";
 import toast, { Toaster } from "react-hot-toast";
-import {
-  ArrowLeft,
-  PlayCircle,
-  User,
-  BookOpen,
-  CheckCircle,
-  PlusCircle,
-} from "lucide-react";
+import { ArrowLeft, PlayCircle, BookOpen, CheckCircle } from "lucide-react";
 
 const BACKEND_BASE = "http://localhost:5000";
 
 export default function CourseDetail() {
-  const { id } = useParams(); 
+  const { id } = useParams();
   const navigate = useNavigate();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,8 +17,6 @@ export default function CourseDetail() {
     const fetchCourseAndQuizzes = async () => {
       try {
         setLoading(true);
-
-        // 1. fetch course details
         const res = await fetch(`${BACKEND_BASE}/api/courses/public/${id}`, {
           credentials: "include",
         });
@@ -34,20 +24,18 @@ export default function CourseDetail() {
         if (!res.ok) throw new Error(data.message || "Course not found");
         setCourse(data);
 
-        // 2. fetch quizzes for this course
         const quizRes = await fetch(
           `${BACKEND_BASE}/api/quizzes/course/${id}`,
-          {
-            credentials: "include",
-          }
+          { credentials: "include" }
         );
         const quizData = await quizRes.json();
         if (quizRes.ok && Array.isArray(quizData)) {
-          // remove duplicate quizzes by _id
           const unique = quizData.filter(
             (q, i, arr) => i === arr.findIndex((x) => x._id === q._id)
           );
           setQuizzes(unique);
+        } else {
+          setQuizzes([]);
         }
       } catch (err) {
         toast.error(err.message || "Failed to load course");
@@ -59,8 +47,6 @@ export default function CourseDetail() {
 
     fetchCourseAndQuizzes();
   }, [id, navigate]);
-
- 
 
   if (loading)
     return (
@@ -100,14 +86,18 @@ export default function CourseDetail() {
       </div>
     );
 
+  const durationText = (d) => {
+    if (!d) return "—";
+    if (typeof d === "string") return d;
+    return `${d} week${d === 1 ? "" : "s"}`;
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <StudentSidebar />
       <main className="flex-1 p-6 lg:p-12">
         <Toaster position="top-right" />
-
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Main column */}
           <section className="md:col-span-2 bg-white rounded-2xl shadow p-6 space-y-6">
             <div className="flex items-center justify-between">
               <button
@@ -117,7 +107,6 @@ export default function CourseDetail() {
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </button>
-
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-500">Category</span>
                 <span className="px-2 py-0.5 text-xs bg-slate-100 rounded-full text-slate-700">
@@ -126,7 +115,6 @@ export default function CourseDetail() {
               </div>
             </div>
 
-            {/* title */}
             <div>
               <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">
                 {course.name}
@@ -136,7 +124,6 @@ export default function CourseDetail() {
               </p>
             </div>
 
-            {/* video */}
             {course.videoUrl ? (
               <div className="w-full rounded-xl overflow-hidden bg-black/5">
                 <video
@@ -154,7 +141,6 @@ export default function CourseDetail() {
               </div>
             )}
 
-            {/* description */}
             {course.description && (
               <div className="prose prose-sm max-w-none text-slate-700">
                 <h3 className="text-lg font-medium">About this course</h3>
@@ -162,7 +148,6 @@ export default function CourseDetail() {
               </div>
             )}
 
-            {/* Quizzes */}
             <div>
               <h3 className="text-lg font-medium mb-3">Quizzes</h3>
               {quizzes.length === 0 ? (
@@ -182,7 +167,6 @@ export default function CourseDetail() {
                           {q.title}
                         </div>
                       </div>
-
                       <div>
                         <button
                           onClick={() => navigate(`/quiz/${q._id}`)}
@@ -199,27 +183,55 @@ export default function CourseDetail() {
             </div>
           </section>
 
-          {/* Right column: instructor / actions */}
           <aside className="md:col-span-1">
             <div className="sticky top-6 space-y-4">
-              <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center text-center">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-blue-400 flex items-center justify-center text-white text-xl font-semibold mb-3">
-                  {course.instructor ? (
-                    course.instructor
-                      .split(" ")
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join("")
-                  ) : (
-                    <User className="h-6 w-6" />
-                  )}
+              <div className="bg-white rounded-xl shadow p-4 text-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-blue-400 flex items-center justify-center text-white text-xl font-semibold mb-3 mx-auto">
+                  {course.university?.name
+                    ? String(course.university.name)
+                        .split(" ")
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join("")
+                    : "U"}
                 </div>
                 <div className="text-sm font-medium text-slate-900">
-                  {course.instructor || "Instructor"}
+                  {course.university?.name || "University not provided"}
                 </div>
-                {course.instructorEmail && (
+                {course.university?.verified && (
+                  <div className="text-xs text-emerald-600 mt-1 font-medium">
+                    Verified
+                  </div>
+                )}
+                {course.university?.location?.city && (
                   <div className="text-xs text-slate-500 mt-1">
-                    {course.instructorEmail}
+                    {[
+                      course.university.location.city,
+                      course.university.location.state,
+                      course.university.location.country,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </div>
+                )}
+                {course.university?.website && (
+                  <a
+                    href={course.university.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs mt-2 inline-block text-indigo-600 hover:underline"
+                  >
+                    Visit website
+                  </a>
+                )}
+                {course.university?.email && (
+                  <div className="text-xs text-slate-500 mt-2">
+                    {course.university.email}
+                  </div>
+                )}
+                {course.university?.description && (
+                  <div className="text-xs text-slate-500 mt-3 line-clamp-3">
+                    {course.university.description}
                   </div>
                 )}
               </div>
@@ -230,9 +242,7 @@ export default function CourseDetail() {
                 </div>
                 <div className="flex items-center justify-between text-sm text-slate-700">
                   <div className="font-medium">Duration</div>
-                  <div>
-                    {course.duration ? `${course.duration} weeks` : "—"}
-                  </div>
+                  <div>{durationText(course.duration)}</div>
                 </div>
                 <div className="flex items-center justify-between text-sm text-slate-700 mt-2">
                   <div className="font-medium">Lessons</div>
