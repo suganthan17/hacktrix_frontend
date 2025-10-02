@@ -1,11 +1,19 @@
 // src/pages/university/UniversityCourses.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import UniversitySidebar from "../../components/UniversitySidebar";
 import { BASE_URL } from "../../config";
 import toast, { Toaster } from "react-hot-toast";
-import { Trash2, Users, Calendar } from "lucide-react";
+import {
+  Trash2,
+  Users,
+  Edit2,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
+/* ---------- helpers ---------- */
 const fmtDateSafe = (d) => {
   try {
     if (!d) return "—";
@@ -16,26 +24,7 @@ const fmtDateSafe = (d) => {
     return "—";
   }
 };
-
-const PALETTE = [
-  ["#7C3AED", "#4C1D95"],
-  ["#0EA5A4", "#065F46"],
-  ["#F97316", "#C2410C"],
-  ["#06B6D4", "#0E7490"],
-  ["#EF4444", "#B91C1C"],
-  ["#4F46E5", "#4338CA"],
-  ["#F43F5E", "#BE123C"],
-  ["#0EA5A4", "#065F46"],
-];
-
-const pickGradient = (key = "", idxFallback = 0) => {
-  let idx = 0;
-  for (let ch of String(key))
-    idx = (idx * 31 + ch.charCodeAt(0)) % PALETTE.length;
-  idx = idx % PALETTE.length;
-  const [a, b] = PALETTE[idx || idxFallback % PALETTE.length];
-  return `linear-gradient(135deg, ${a}, ${b})`;
-};
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 const initials = (name = "") => {
   const parts = name.trim().split(" ").filter(Boolean);
@@ -44,42 +33,54 @@ const initials = (name = "") => {
   return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
 };
 
+/* ---------- component ---------- */
 export default function UniversityCourses() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // UI
+  const [viewMode, setViewMode] = useState("grid");
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 9;
+  const base = BASE_URL.replace(/\/$/, "");
+
   useEffect(() => {
-    const fetchCourses = async () => {
+    let cancelled = false;
+    async function load() {
       setLoading(true);
       setError(null);
       try {
-        const url = `${BASE_URL.replace(/\/$/, "")}/api/courses/university`;
+        const url = `${base}/api/courses/university`;
         const res = await fetch(url, { credentials: "include" });
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
           throw new Error(`${res.status} ${res.statusText} ${txt}`);
         }
         const data = await res.json();
-        setCourses(Array.isArray(data) ? data : []);
+        if (!cancelled) setCourses(Array.isArray(data) ? data : []);
       } catch (err) {
-        setError(String(err));
-        console.error(err);
+        if (!cancelled) {
+          setError(String(err));
+          console.error("fetch courses:", err);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    }
+    load();
+    return () => {
+      cancelled = true;
     };
-    fetchCourses();
-  }, []);
+  }, [base]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this course? This action cannot be undone."))
-      return;
+    const ok = window.confirm(
+      "Delete this course? This action cannot be undone."
+    );
+    if (!ok) return;
     try {
-      const url = `${BASE_URL.replace(
-        /\/$/,
-        ""
-      )}/api/courses/${encodeURIComponent(id)}`;
+      const url = `${base}/api/courses/${encodeURIComponent(id)}`;
       const res = await fetch(url, {
         method: "DELETE",
         credentials: "include",
@@ -88,179 +89,244 @@ export default function UniversityCourses() {
         const txt = await res.text().catch(() => "");
         throw new Error(`${res.status} ${res.statusText} ${txt}`);
       }
-
       toast.success("Course deleted");
-      // optionally refresh list after deletion:
       setCourses((prev) => prev.filter((c) => (c._id || c.id) !== id));
     } catch (err) {
       toast.error("Delete failed");
-      alert("Delete failed: " + String(err));
-      console.error(err);
+      console.error("delete failed:", err);
     }
   };
 
+  const filtered = useMemo(() => {
+    return courses.slice().sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+  }, [courses]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  useEffect(() => setPage((p) => clamp(p, 1, totalPages)), [totalPages]);
+
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PER_PAGE;
+    return filtered.slice(start, start + PER_PAGE);
+  }, [filtered, page]);
+
+  /* ---------- UI ---------- */
   return (
-    <div className="flex w-full min-h-screen bg-gray-50">
+    <div className="flex w-full min-h-screen bg-gradient-to-b from-white to-slate-50">
       <UniversitySidebar />
       <main className="flex-1 p-8">
         <Toaster position="top-right" />
         <div className="max-w-7xl mx-auto">
+          {/* header */}
           <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-800">
+              <h1 className="text-3xl font-extrabold text-slate-900">
                 My Courses
               </h1>
               <p className="text-sm text-slate-500 mt-1">
-                Manage courses published by your university — view students or
-                remove a course.
+                Grid or List view — darker, modern buttons. “View Students”
+                replaces View.
               </p>
             </div>
-
             <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-2 bg-white rounded-full px-3 py-2 shadow-sm border border-gray-100">
-                <Calendar className="w-4 h-4 text-slate-500" />
-                <div className="text-sm text-slate-700 font-medium">
-                  {courses.length}
-                </div>
-                <div className="text-xs text-slate-400 ml-1">courses</div>
+              <div className="inline-flex items-center rounded-full bg-white shadow-sm border border-gray-200 p-1">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    viewMode === "grid"
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Grid
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    viewMode === "list"
+                      ? "bg-pink-600 text-white"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  List
+                </button>
               </div>
-
-              <a
-                href="/university-addcourse"
-                className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 text-sm"
+              <Link
+                to="/university-addcourse"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white shadow-md bg-gradient-to-r from-indigo-700 to-blue-600 hover:from-indigo-800 hover:to-blue-700"
               >
                 Add Course
-              </a>
+              </Link>
             </div>
           </header>
 
+          {/* content */}
           {loading ? (
-            <div className="flex items-center justify-center h-44 text-slate-500">
-              Loading courses…
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="animate-pulse bg-white rounded-2xl p-4 h-44 shadow-sm border border-gray-100"
+                />
+              ))}
             </div>
           ) : error ? (
-            <div className="rounded-lg bg-red-50 border border-red-100 p-4 text-red-700">
+            <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-rose-700">
               {error}
             </div>
-          ) : courses.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className="text-center py-20 text-gray-500">
               <div className="text-lg font-medium text-slate-700">
-                No courses added yet.
+                No courses to show.
               </div>
-              <div className="mt-3 text-sm">
-                Use the Add Course page to publish new courses.
-              </div>
-              <div className="mt-6">
-                <a
-                  href="/university-addcourse"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  Add Course
-                </a>
-              </div>
+              <div className="mt-3 text-sm">Add a course to get started.</div>
             </div>
-          ) : (
+          ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courses.map((course, idx) => {
+              {pageItems.map((course) => {
                 const id = course._id || course.id;
-                const gradient = pickGradient(
-                  course.category || course.name || id,
-                  idx
-                );
                 return (
                   <article
                     key={id}
-                    className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition overflow-hidden flex flex-col"
+                    className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow hover:shadow-md transform hover:-translate-y-1 transition"
                   >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="w-24 h-16 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 relative"
-                        style={{ background: gradient }}
-                      >
-                        {course.thumbnail ? (
-                          <img
-                            src={`${BASE_URL.replace(/\/$/, "")}${
-                              course.thumbnail
-                            }`}
-                            alt={course.name}
-                            className="w-full h-full object-cover opacity-95"
-                          />
-                        ) : (
-                          <div className="text-white font-semibold text-lg">
-                            {initials(course.name)}
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/6" />
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-slate-900 truncate">
+                        {course.name || course.title}
+                      </h3>
+                      <div className="text-xs text-slate-400 mt-2 flex items-center gap-3">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                          {course.category || "General"}
+                        </span>
+                        <span>{fmtDateSafe(course.createdAt)}</span>
                       </div>
+                      <p className="text-sm text-slate-500 mt-3 line-clamp-3">
+                        {course.description || "No description provided."}
+                      </p>
 
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-slate-900 truncate">
-                          {course.name || course.title}
-                        </h3>
-                        <div className="mt-2 flex items-center gap-2 flex-wrap">
-                          <span
-                            className="px-2 py-0.5 text-xs rounded-full font-medium"
-                            style={{
-                              background: gradient,
-                              color: "#fff",
-                              boxShadow: "0 6px 18px rgba(15,23,42,0.06)",
-                            }}
-                          >
-                            {course.category || "General"}
-                          </span>
-
-                          <span className="text-xs text-slate-400 ml-auto">
-                            {fmtDateSafe(course.createdAt)}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-slate-500 mt-3 line-clamp-3">
-                          {course.description || "No description provided."}
-                        </p>
-
-                        <div className="mt-4 flex items-center gap-3 text-sm text-slate-600">
-                          <div>
-                            <div className="text-xs text-slate-400">
-                              Duration
-                            </div>
-                            <div className="font-medium">
-                              {course.duration ?? "N/A"} weeks
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-slate-400">
-                              Schedule
-                            </div>
-                            <div className="font-medium">
-                              {fmtDateSafe(course.startDate)} —{" "}
-                              {fmtDateSafe(course.endDate)}
-                            </div>
-                          </div>
-                        </div>
+                      <div className="mt-4 flex items-center gap-3 justify-end">
+                        <Link
+                          to="/university-students"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+                        >
+                          <Users className="w-4 h-4" /> View Students
+                        </Link>
+                        <Link
+                          to={`/university-course-edit/${id}`}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-slate-600 text-white hover:bg-slate-700"
+                        >
+                          <Edit2 className="w-4 h-4" /> Edit
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(id)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-red-600 text-white hover:bg-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" /> Delete
+                        </button>
                       </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-end gap-3">
-                      {/* Client-side navigation to the students page */}
-                      <Link
-                        to="/university-students"
-                        className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
-                      >
-                        <Users className="w-4 h-4" />
-                        View Students
-                      </Link>
-
-                      <button
-                        onClick={() => handleDelete(id)}
-                        className="inline-flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
                     </div>
                   </article>
                 );
               })}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="grid grid-cols-12 gap-4 items-center px-4 py-3 border-b border-gray-100 text-xs text-slate-500 bg-slate-50">
+                <div className="col-span-7">Course</div>
+                <div className="col-span-3 text-center">Category</div>
+                <div className="col-span-2 text-right">Created</div>
+              </div>
+              <div>
+                {pageItems.map((course) => {
+                  const id = course._id || course.id;
+                  return (
+                    <div
+                      key={id}
+                      className="grid grid-cols-12 gap-4 items-center px-4 py-3 hover:bg-slate-50 transition border-b last:border-b-0"
+                    >
+                      <div className="col-span-7 flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded border bg-slate-100 flex items-center justify-center text-slate-700 font-semibold">
+                          {initials(course.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-900 truncate">
+                            {course.name || course.title}
+                          </div>
+                          <div className="text-xs text-slate-400 truncate">
+                            {course.description || "-"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-span-3 text-center">
+                        <div className="text-sm text-slate-700">
+                          {course.category || "General"}
+                        </div>
+                      </div>
+                      <div className="col-span-2 text-right flex items-center gap-3 justify-end">
+                        <div className="text-sm text-slate-500">
+                          {fmtDateSafe(course.createdAt)}
+                        </div>
+                        <Link
+                          to={`/university-students`}
+                          className="text-blue-600 hover:text-blue-800"
+                          aria-label={`View Students for ${course.name}`}
+                        >
+                          <Users className="w-4 h-4" />
+                        </Link>
+                        <Link
+                          to={`/university-course-edit/${id}`}
+                          className="text-slate-600 hover:text-slate-900"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* pagination */}
+          {filtered.length > 0 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                Showing{" "}
+                <span className="font-medium">{(page - 1) * PER_PAGE + 1}</span>{" "}
+                —
+                <span className="font-medium">
+                  {Math.min(page * PER_PAGE, filtered.length)}
+                </span>{" "}
+                of <span className="font-medium">{filtered.length}</span>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => clamp(p - 1, 1, totalPages))}
+                  disabled={page === 1}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border shadow-sm disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="px-3 py-1 text-sm bg-white border rounded">
+                  {page} / {totalPages}
+                </div>
+                <button
+                  onClick={() => setPage((p) => clamp(p + 1, 1, totalPages))}
+                  disabled={page === totalPages}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border shadow-sm disabled:opacity-50"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>

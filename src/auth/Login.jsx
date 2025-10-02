@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import { BASE_URL } from "../config";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false); // clearer name
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -14,86 +16,122 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    toast.dismiss();
+
+    const loginPromise = (async () => {
+      const res = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(formData),
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) throw new Error(data.message || "Login failed");
+      return data;
+    })();
 
     try {
-      const loginPromise = (async () => {
-        const res = await fetch(`${BASE_URL}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(formData),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Login failed");
-
-        // Determine role from backend (support both shapes)
-        const role = data?.user?.role || data?.role || "";
-
-        // small delay so toast shows nicely, then navigate by role
-        setTimeout(() => {
-          toast.dismiss();
-          if (role === "university") {
-            navigate("/university-dashboard");
-          } else {
-            // treat everything else as student
-            navigate("/student-dashboard");
-          }
-        }, 800);
-
-        return data.message || "Login successful";
-      })();
-
-      await toast.promise(loginPromise, {
+      const data = await toast.promise(loginPromise, {
         loading: "Logging in...",
-        success: (msg) => msg,
+        success: (resData) => resData.message || "Logged in successfully",
         error: (err) => err.message || "Login failed",
       });
+
+      const role = data?.user?.role || data?.role || "";
+      setTimeout(() => {
+        if (role === "university") navigate("/university-dashboard");
+        else navigate("/student-dashboard");
+      }, 700);
     } catch (err) {
-      toast.error(err.message || "Login failed");
+      console.error("Login error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  const togglePassword = (e) => {
+    e.preventDefault(); // ensure no accidental form submit
+    setPasswordVisible((v) => !v);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center px-4">
-      <div className="bg-white shadow-2xl rounded-3xl w-full max-w-lg p-8 sm:p-10">
+      <Toaster position="top-right" />
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 sm:p-10">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome Back!</h1>
-          <p className="text-gray-500 mt-2">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+            Welcome Back!
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
             Log in to access your MentorNet dashboard.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            className="w-full p-4 border rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none"
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            className="w-full p-4 border rounded-xl focus:ring-2 focus:ring-indigo-400 outline-none"
-          />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Email input with left icon */}
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <Mail className="w-5 h-5" />
+            </div>
+            <input
+              type="email"
+              name="email"
+              placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              className="w-full p-4 pl-12 pr-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+            />
+          </div>
+
+          {/* Password input with left lock icon and right show/hide button */}
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <Lock className="w-5 h-5" />
+            </div>
+
+            <input
+              type={passwordVisible ? "text" : "password"}
+              name="password"
+              placeholder="Password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              className="w-full p-4 pl-12 pr-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+            />
+
+            <button
+              type="button"
+              onClick={togglePassword}
+              aria-label={passwordVisible ? "Hide password" : "Show password"}
+              title={passwordVisible ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+            >
+              {passwordVisible ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white p-4 rounded-xl hover:bg-indigo-700 transition cursor-pointer"
+            className="w-full bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition text-sm font-medium disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        <p className="text-center text-gray-500 mt-6">
+        <p className="text-center text-slate-500 mt-6 text-sm">
           Don't have an account?{" "}
           <span
             className="text-indigo-600 font-semibold cursor-pointer hover:underline"

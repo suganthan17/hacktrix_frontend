@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import StudentSidebar from "../../components/StudentSidebar";
 import toast, { Toaster } from "react-hot-toast";
 import { Trash2, ArrowRight, User } from "lucide-react";
-import StudentProgressModal from "../../components/StudentProgressModal";
 
 const BACKEND_BASE = "http://localhost:5000";
 
@@ -15,27 +14,8 @@ export default function EnrolledCourses() {
     courseId: null,
     name: "",
   });
-  const [me, setMe] = useState(null); // logged-in student info
-  const [progressOpen, setProgressOpen] = useState(false);
-  const [progressCourse, setProgressCourse] = useState(null);
 
   const navigate = useNavigate();
-
-  // fetch currently logged-in user (so we know student id)
-  const fetchMe = async () => {
-    try {
-      const res = await fetch(`${BACKEND_BASE}/api/auth/me`, {
-        credentials: "include",
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      setMe(data);
-      return data;
-    } catch (err) {
-      console.error("fetchMe error:", err);
-      return null;
-    }
-  };
 
   const fetchEnrolledCourses = async () => {
     try {
@@ -45,7 +25,9 @@ export default function EnrolledCourses() {
       });
       if (!res.ok) throw new Error("Failed to fetch courses");
       const data = await res.json();
-      const enrolled = Array.isArray(data) ? data.filter((c) => c.enrolled) : [];
+      const enrolled = Array.isArray(data)
+        ? data.filter((c) => c.enrolled)
+        : [];
       setCourses(enrolled);
     } catch (err) {
       console.error(err);
@@ -56,8 +38,7 @@ export default function EnrolledCourses() {
   };
 
   useEffect(() => {
-    // fetch both enrolled courses and current user
-    fetchMe().finally(() => fetchEnrolledCourses());
+    fetchEnrolledCourses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -86,25 +67,15 @@ export default function EnrolledCourses() {
     }
   };
 
-  // Open progress modal for logged-in student and the selected course
-  const openProgressModal = (course) => {
-    if (!me?.email && !me?.id) {
-      toast.error("You must be logged in to view progress");
-      return;
-    }
-    setProgressCourse(course);
-    setProgressOpen(true);
-  };
-
   const PALETTE = [
-    ["#7C3AED", "#4C1D95"],
-    ["#0EA5A4", "#065F46"],
-    ["#F97316", "#C2410C"],
     ["#06B6D4", "#0E7490"],
     ["#EF4444", "#B91C1C"],
+    ["#7C3AED", "#4C1D95"],
+    ["#F43F5E", "#BE123C"],
     ["#0EA5A4", "#065F46"],
     ["#4F46E5", "#4338CA"],
-    ["#F43F5E", "#BE123C"],
+    ["#F97316", "#C2410C"],
+    ["#0EA5A4", "#065F46"],
   ];
 
   const pickGradient = (course, i) => {
@@ -247,13 +218,6 @@ export default function EnrolledCourses() {
                             <ArrowRight className="h-4 w-4" />
                             Open
                           </button>
-
-                          <button
-                            onClick={() => openProgressModal(course)}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
-                          >
-                            View Progress
-                          </button>
                         </div>
 
                         <button
@@ -307,17 +271,6 @@ export default function EnrolledCourses() {
             </div>
           </div>
         </div>
-      )}
-
-      {progressOpen && progressCourse && me && (
-        <StudentProgressModal
-          student={me} // expects { id, name, email } shape from /api/auth/me
-          courseId={progressCourse._id}
-          onClose={() => {
-            setProgressOpen(false);
-            setProgressCourse(null);
-          }}
-        />
       )}
     </div>
   );

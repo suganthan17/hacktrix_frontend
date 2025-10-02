@@ -1,23 +1,56 @@
-// src/pages/university/UniversityStudents.jsx
 import React, { useEffect, useState } from "react";
 import UniversitySidebar from "../../components/UniversitySidebar";
+import StudentProgressModal from "../../components/StudentProgressModal";
 import toast, { Toaster } from "react-hot-toast";
-import { ArrowRight, User } from "lucide-react";
+import {
+  ArrowRight,
+  User,
+  Mail,
+  MapPin,
+  BookOpen,
+  Award,
+  RefreshCw,
+} from "lucide-react";
 
 const BACKEND_BASE = "http://localhost:5000";
 
 export default function UniversityStudents() {
   const [courses, setCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
-
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [enrollments, setEnrollments] = useState([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
-
-  const [selectedStudent, setSelectedStudent] = useState(null); // enrollment object
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedStudentProfile, setSelectedStudentProfile] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [studentProfiles, setStudentProfiles] = useState({});
 
-  // fetch courses that belong to logged-in university
+  async function safeFetchJson(url, options = {}) {
+    const res = await fetch(url, { credentials: "include", ...options });
+    const text = await res.text().catch(() => "");
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    if (!res.ok) {
+      let parsed = null;
+      try {
+        parsed =
+          ct.includes("application/json") && text ? JSON.parse(text) : null;
+      } catch {
+        console.log("Failed parsing error body");
+      }
+      const msg =
+        (parsed && (parsed.message || parsed.error)) || `HTTP ${res.status}`;
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+    if (!ct.includes("application/json")) return null;
+    try {
+      return text ? JSON.parse(text) : null;
+    } catch {
+      return null;
+    }
+  }
+
   const fetchUniversityCourses = async () => {
     try {
       setLoadingCourses(true);
@@ -28,18 +61,17 @@ export default function UniversityStudents() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || "Failed to load courses");
       }
-      const data = await res.json();
-      setCourses(Array.isArray(data) ? data : []);
-      if (Array.isArray(data) && data.length) setSelectedCourse(data[0]);
+      const data = await res.json().catch(() => []);
+      const arr = Array.isArray(data) ? data : [];
+      setCourses(arr);
+      if (arr.length && !selectedCourse) setSelectedCourse(arr[0]);
     } catch (err) {
-      console.error("fetchUniversityCourses:", err);
       toast.error(err.message || "Failed to load university courses");
     } finally {
       setLoadingCourses(false);
     }
   };
 
-  // fetch enrollments for selected course
   const fetchEnrollments = async (course) => {
     if (!course) return;
     try {
@@ -51,10 +83,33 @@ export default function UniversityStudents() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || "Failed to load enrollments");
       }
-      const data = await res.json();
-      setEnrollments(Array.isArray(data) ? data : []);
+      const data = await res.json().catch(() => []);
+      const normalized = Array.isArray(data)
+        ? data.map((en) => {
+            const student =
+              en.student && typeof en.student === "object"
+                ? en.student
+                : en.studentId && typeof en.studentId === "object"
+                ? en.studentId
+                : en.studentId && typeof en.studentId === "string"
+                ? { _id: en.studentId }
+                : en.student && typeof en.student === "string"
+                ? { _id: en.student }
+                : null;
+            return {
+              ...en,
+              enrollmentId: en.enrollmentId || en._id || en.id,
+              student,
+            };
+          })
+        : [];
+      setEnrollments(normalized);
+      const ids = normalized
+        .map((en) => (en.student && (en.student._id || en.student.id)) || null)
+        .filter(Boolean)
+        .map(String);
+      fetchStudentProfiles(ids);
     } catch (err) {
-      console.error("fetchEnrollments:", err);
       toast.error(err.message || "Failed to load enrollments");
       setEnrollments([]);
     } finally {
@@ -62,53 +117,151 @@ export default function UniversityStudents() {
     }
   };
 
+  const fetchStudentProfiles = async (ids = []) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    const uniq = Array.from(new Set(ids.map(String)));
+    const current = { ...studentProfiles };
+    const toFetch = uniq.filter(
+      (id) => !Object.prototype.hasOwnProperty.call(current, id)
+    );
+    if (toFetch.length === 0) return;
+    const promises = toFetch.map(async (id) => {
+      try {
+        const data = await safeFetchJson(
+          `${BACKEND_BASE}/api/student-profile/${encodeURIComponent(id)}`,
+          { method: "GET" }
+        );
+        const raw = data?.profile || data || null;
+        if (!raw) return { id, profile: null };
+        const normalized = {
+          _id: raw._id || raw.id || id,
+          name: raw.name || raw.fullName || raw.displayName || null,
+          email: raw.email || null,
+          phone: raw.phone || null,
+          location: raw.location || null,
+          school: raw.school || null,
+          grade: raw.grade || null,
+          achievements: raw.achievements || null,
+          interests: raw.interests || null,
+          profilePic: raw.profilePic || null,
+          resume: raw.resume || null,
+          updatedAt: raw.updatedAt || raw.updated_at || null,
+        };
+        return { id, profile: normalized };
+      } catch {
+        return { id, profile: null };
+      }
+    });
+    const settled = await Promise.allSettled(promises);
+    const next = { ...current };
+    for (const s of settled) {
+      if (s.status === "fulfilled" && s.value && s.value.id)
+        next[s.value.id] = s.value.profile;
+    }
+    setStudentProfiles(next);
+  };
+
   useEffect(() => {
     fetchUniversityCourses();
   }, []);
 
   useEffect(() => {
+    setSelectedStudent(null);
+    setSelectedStudentProfile(null);
+    setModalOpen(false);
     if (selectedCourse) fetchEnrollments(selectedCourse);
     else setEnrollments([]);
   }, [selectedCourse]);
 
-  const openStudentModal = (enrollment) => {
-    setSelectedStudent(enrollment);
+  const normalizeStudentFromEnrollment = (en) => {
+    if (!en) return null;
+    if (en.student && typeof en.student === "object") return en.student;
+    if (en.student && typeof en.student === "string")
+      return { _id: en.student };
+    if (en.studentId && typeof en.studentId === "object") return en.studentId;
+    if (en.studentId && typeof en.studentId === "string")
+      return { _id: en.studentId };
+    if (en._id || en.id || (en.name && typeof en.name === "string"))
+      return { _id: en._id || en.id, name: en.name, email: en.email };
+    return null;
+  };
+
+  const openStudentModal = async (enrollment) => {
+    const student = normalizeStudentFromEnrollment(enrollment);
+    if (!student || !student._id) {
+      toast.error("Student id missing — cannot show progress");
+      return;
+    }
+    const sid = String(student._id);
+    let profile = studentProfiles[sid];
+    if (profile === undefined) {
+      try {
+        const data = await safeFetchJson(
+          `${BACKEND_BASE}/api/student-profile/${encodeURIComponent(sid)}`,
+          { method: "GET" }
+        ).catch(() => null);
+        const raw = data?.profile || data || null;
+        profile = raw
+          ? {
+              _id: raw._id || raw.id || sid,
+              name: raw.name || raw.fullName || null,
+              email: raw.email || null,
+              phone: raw.phone || null,
+              location: raw.location || null,
+              school: raw.school || null,
+              grade: raw.grade || null,
+              profilePic: raw.profilePic || null,
+              updatedAt: raw.updatedAt || raw.updated_at || null,
+              achievements: raw.achievements || null,
+              interests: raw.interests || null,
+              resume: raw.resume || null,
+            }
+          : null;
+        setStudentProfiles((prev) => ({ ...prev, [sid]: profile }));
+      } catch {
+        setStudentProfiles((prev) => ({ ...prev, [sid]: null }));
+        profile = null;
+      }
+    }
+    setSelectedStudent(student);
+    setSelectedStudentProfile(profile || null);
     setModalOpen(true);
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gradient-to-b from-white to-slate-50">
       <UniversitySidebar />
       <main className="flex-1 p-6 lg:p-12">
         <Toaster position="top-right" />
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
                 Students & Progress
               </h1>
               <p className="text-sm text-slate-500 mt-1">
                 Select a course to view enrolled students and track progress.
               </p>
             </div>
-
             <div className="flex items-center gap-4">
               <div className="text-xs text-slate-400">Courses</div>
               <div className="text-lg font-medium text-slate-700">
                 {courses.length}
               </div>
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-400 flex items-center justify-center shadow text-white">
-                <User className="h-4 w-4" />
-              </div>
+              <button
+                onClick={() => fetchUniversityCourses()}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white shadow hover:shadow-md border border-gray-100"
+              >
+                <RefreshCw className="h-4 w-4 text-slate-600" />
+                <span className="text-sm text-slate-700">Refresh</span>
+              </button>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-md p-4">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="w-72">
-                <label className="text-sm text-slate-600 block mb-1">
-                  Select Course
-                </label>
+          <div className="bg-white rounded-2xl shadow p-5">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+              <div className="w-full md:w-72">
+                <label className="text-xs text-slate-500">Course</label>
                 <select
                   value={selectedCourse?._id || ""}
                   onChange={(e) => {
@@ -116,7 +269,7 @@ export default function UniversityStudents() {
                     const c = courses.find((x) => x._id === id);
                     setSelectedCourse(c || null);
                   }}
-                  className="w-full border rounded px-3 py-2"
+                  className="mt-2 w-full border rounded-lg px-3 py-2 bg-white text-sm"
                 >
                   <option value="">-- Choose course --</option>
                   {courses.map((c) => (
@@ -126,31 +279,21 @@ export default function UniversityStudents() {
                   ))}
                 </select>
               </div>
-
-              <div className="ml-auto">
-                <button
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded bg-indigo-600 text-white"
-                  onClick={() => fetchUniversityCourses()}
-                >
-                  Refresh Courses
-                </button>
-              </div>
             </div>
 
             {loadingCourses ? (
-              <div className="py-8 text-center text-slate-500">
+              <div className="py-16 text-center text-slate-500">
                 Loading courses…
               </div>
             ) : !selectedCourse ? (
-              <div className="py-12 text-center text-slate-600">
-                No course selected — create a course first or select from the
-                list.
+              <div className="py-20 text-center text-slate-600">
+                No course selected — choose a course to see enrolled students.
               </div>
             ) : (
-              <div>
-                <div className="mb-3 flex items-center justify-between">
+              <>
+                <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold">
+                    <h2 className="text-lg font-semibold text-slate-900">
                       {selectedCourse.name}
                     </h2>
                     <div className="text-sm text-slate-500">
@@ -158,90 +301,111 @@ export default function UniversityStudents() {
                       {selectedCourse.lessons ?? "-"} lessons
                     </div>
                   </div>
-                  <div className="text-sm text-slate-500">
-                    {enrollments.length} enrolled
+                  <div className="text-sm text-slate-600">
+                    {enrollments.length} students
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-slate-600 border-b">
-                      <tr>
-                        <th className="py-2">Student</th>
-                        <th>Email</th>
-                        <th>Enrolled At</th>
-                        <th>Status</th>
-                        <th className="text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loadingEnrollments ? (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="py-8 text-center text-slate-500"
-                          >
-                            Loading enrollments…
-                          </td>
-                        </tr>
-                      ) : enrollments.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="py-8 text-center text-slate-500"
-                          >
-                            No students enrolled yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        enrollments.map((en) => {
-                          const student = en.student || en.studentId || {};
-                          return (
-                            <tr
-                              key={en._id || en.enrollmentId}
-                              className="border-b"
-                            >
-                              <td className="py-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-700">
-                                    {student.name
-                                      ? student.name[0].toUpperCase()
-                                      : "S"}
+                {loadingEnrollments ? (
+                  <div className="py-16 text-center text-slate-500">
+                    Loading students…
+                  </div>
+                ) : enrollments.length === 0 ? (
+                  <div className="py-16 text-center text-slate-500">
+                    No students enrolled yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {enrollments.map((en) => {
+                      const student = en.student || en.studentId || {};
+                      const sid = String(student?._id || student?.id || "");
+                      const profile = studentProfiles[sid];
+                      const name =
+                        (profile && profile.name) || student?.name || "Unknown";
+                      const email =
+                        (profile && profile.email) || student?.email || "-";
+                      const location =
+                        (profile && profile.location) ||
+                        student?.location ||
+                        "-";
+                      const school =
+                        (profile && profile.school) || student?.school || "-";
+                      const grade =
+                        (profile && profile.grade) || student?.grade || "-";
+                      const initials =
+                        name && name.length
+                          ? name
+                              .split(" ")
+                              .map((s) => s[0])
+                              .slice(0, 2)
+                              .join("")
+                          : "S";
+                      return (
+                        <div
+                          key={en.enrollmentId || en._id || sid}
+                          className="bg-white rounded-2xl p-4 shadow hover:shadow-lg transition"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0">
+                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-400 flex items-center justify-center text-white font-semibold">
+                                {initials}
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="text-sm font-medium text-slate-900">
+                                    {name}
                                   </div>
-                                  <div>
-                                    <div className="font-medium">
-                                      {student.name || "Unknown"}
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                      {String(student._id || "").slice(-8)}
-                                    </div>
+                                  <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+                                    <Mail className="h-3 w-3 text-slate-400" />{" "}
+                                    <span>{email}</span>
                                   </div>
                                 </div>
-                              </td>
-                              <td className="py-3">{student.email || "-"}</td>
-                              <td className="py-3">
-                                {en.enrolledAt
-                                  ? new Date(en.enrolledAt).toLocaleDateString()
-                                  : "-"}
-                              </td>
-                              <td className="py-3">{en.status || "active"}</td>
-                              <td className="py-3 text-right">
-                                <button
-                                  onClick={() => openStudentModal(en)}
-                                  className="inline-flex items-center gap-2 px-3 py-1 rounded bg-blue-600 text-white"
-                                >
-                                  View Progress
-                                  <ArrowRight className="h-4 w-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                              </div>
+
+                              <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-600">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4 text-slate-400" />
+                                  <span>{location}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <BookOpen className="h-4 w-4 text-slate-400" />
+                                  <span>{school}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Award className="h-4 w-4 text-slate-400" />
+                                  <span>{grade}</span>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex items-center justify-between gap-2">
+                                <div className="text-xs text-slate-400">
+                                  Enrolled:{" "}
+                                  {en.enrolledAt
+                                    ? new Date(
+                                        en.enrolledAt
+                                      ).toLocaleDateString()
+                                    : "-"}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => openStudentModal(en)}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700"
+                                  >
+                                    View Progress{" "}
+                                    <ArrowRight className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -249,442 +413,21 @@ export default function UniversityStudents() {
 
       {modalOpen && selectedStudent && (
         <StudentProgressModal
-          enrollment={selectedStudent}
-          course={selectedCourse}
+          student={selectedStudent}
+          studentId={selectedStudent._id || selectedStudent.id}
+          studentProfile={
+            selectedStudentProfile ||
+            studentProfiles[String(selectedStudent._id || selectedStudent.id)]
+          }
+          courseId={selectedCourse?._id || selectedCourse?.id}
           onClose={() => {
             setModalOpen(false);
             setSelectedStudent(null);
-            // refresh enrollments & progress after grading
+            setSelectedStudentProfile(null);
             setTimeout(() => fetchEnrollments(selectedCourse), 300);
           }}
         />
       )}
-    </div>
-  );
-}
-
-/* ---------- StudentProgressModal component (embedded) ---------- */
-
-function StudentProgressModal({ enrollment, course, onClose }) {
-  const student = enrollment.student || enrollment.studentId || {};
-  const [progress, setProgress] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const [activeSubmission, setActiveSubmission] = useState(null); // { submission, quizId, loading, notFound }
-  const [gradeValue, setGradeValue] = useState("");
-  const [grading, setGrading] = useState(false);
-
-  // load Progress doc (uses BACKEND_BASE to avoid SPA fallback)
-  const fetchProgress = async () => {
-    try {
-      setLoading(true);
-      const studentId = student._id || student.id || (student && student._id);
-      const courseId = course?._id;
-      if (!studentId || !courseId) {
-        setProgress({
-          videosWatched: [],
-          quizzes: [],
-          projects: [],
-          overallCompletion: 0,
-        });
-        return;
-      }
-
-      const url = `${BACKEND_BASE}/api/progress/${studentId}/${courseId}`;
-      console.log("[fetchProgress] requesting", url);
-      const res = await fetch(url, {
-        credentials: "include",
-      });
-
-      const text = await res.text();
-      let data = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch (e) {
-        console.log(e)
-        console.warn(
-          "[fetchProgress] non-json response",
-          text?.slice?.(0, 300)
-        );
-      }
-
-      if (res.status === 404) {
-        setProgress({
-          videosWatched: [],
-          quizzes: [],
-          projects: [],
-          overallCompletion: 0,
-        });
-        return;
-      }
-      if (!res.ok) {
-        const msg =
-          (data && (data.message || data.error)) || `HTTP ${res.status}`;
-        throw new Error(msg);
-      }
-
-      setProgress(
-        data || {
-          videosWatched: [],
-          quizzes: [],
-          projects: [],
-          overallCompletion: 0,
-        }
-      );
-    } catch (err) {
-      console.error("fetchProgress Error:", err);
-      setProgress({
-        videosWatched: [],
-        quizzes: [],
-        projects: [],
-        overallCompletion: 0,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProgress();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // fetch submissions for a quiz and find this student submission
-  const fetchSubmissionForQuiz = async (quizId) => {
-    try {
-      setActiveSubmission({ loading: true, quizId });
-      const url = `${BACKEND_BASE}/api/quizzes/${quizId}/submissions`;
-      console.log("[fetchSubmissionForQuiz] requesting", url);
-      const res = await fetch(url, { credentials: "include" });
-
-      const text = await res.text();
-      let subs = null;
-      try {
-        subs = text ? JSON.parse(text) : null;
-      } catch (e) {
-        console.log(e)
-        console.warn(
-          "[fetchSubmissionForQuiz] non-json response",
-          text?.slice?.(0, 300)
-        );
-      }
-
-      if (!res.ok) {
-        const body = subs || {};
-        throw new Error(
-          body.message || `Failed to fetch submissions (HTTP ${res.status})`
-        );
-      }
-
-      const arr = Array.isArray(subs) ? subs : [];
-      const sid = student._id || student.id || (student && student._id);
-      const sub = arr.find((s) => {
-        const sidCandidate = s.studentId?._id || s.studentId || s.student;
-        return String(sidCandidate) === String(sid);
-      });
-
-      if (!sub) {
-        setActiveSubmission({ loading: false, quizId, notFound: true });
-        return;
-      }
-      setActiveSubmission({ loading: false, quizId, submission: sub });
-      setGradeValue(sub.totalScore ?? "");
-    } catch (err) {
-      console.error("fetchSubmissionForQuiz", err);
-      toast.error(err.message || "Failed to fetch submissions");
-      setActiveSubmission(null);
-    }
-  };
-
-  const doGrade = async () => {
-    if (!activeSubmission?.submission) return;
-    const id =
-      activeSubmission.submission._id || activeSubmission.submission.id;
-    if (!id) return toast.error("Submission id missing");
-    const parsed = Number(gradeValue);
-    if (Number.isNaN(parsed)) return toast.error("Enter a valid numeric score");
-
-    try {
-      setGrading(true);
-      const url = `${BACKEND_BASE}/api/submissions/${id}/grade`;
-      console.log("[doGrade] calling", url, "totalScore=", parsed);
-
-      const res = await fetch(url, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ totalScore: parsed }),
-      });
-
-      const text = await res.text();
-      let body = null;
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch (e) {
-        console.log(e)
-        console.warn("[doGrade] non-json response", text?.slice?.(0, 300));
-      }
-
-      if (!res.ok)
-        throw new Error(
-          (body && (body.message || body.error)) || `HTTP ${res.status}`
-        );
-
-      toast.success("Graded successfully");
-
-      // update UI from returned data if available
-      if (body?.progress) setProgress(body.progress);
-      if (body?.submission)
-        setActiveSubmission((s) => ({ ...s, submission: body.submission }));
-
-      // refresh progress from server to ensure consistency
-      await fetchProgress();
-    } catch (err) {
-      console.error("doGrade", err);
-      toast.error(err.message || "Grading failed");
-    } finally {
-      setGrading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-auto">
-        <div className="flex items-start justify-between p-4 border-b">
-          <div>
-            <h3 className="text-lg font-semibold">Progress — {student.name}</h3>
-            <div className="text-sm text-slate-500">Course: {course?.name}</div>
-          </div>
-          <div>
-            <button className="px-3 py-1 rounded bg-gray-100" onClick={onClose}>
-              Close
-            </button>
-          </div>
-        </div>
-
-        <div className="p-4 space-y-4">
-          {loading ? (
-            <div>Loading progress…</div>
-          ) : (
-            <>
-              <div className="flex items-center gap-4">
-                <div className="w-28">
-                  <div className="text-sm text-slate-600">Completion</div>
-                  <div className="text-2xl font-semibold">
-                    {progress?.overallCompletion ?? 0}%
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <div className="w-full bg-gray-200 h-3 rounded">
-                    <div
-                      className="h-3 rounded"
-                      style={{
-                        width: `${progress?.overallCompletion ?? 0}%`,
-                        background: "linear-gradient(90deg,#4ade80,#06b6d4)",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Quizzes</h4>
-                <div className="space-y-2">
-                  {(progress?.quizzes || []).map((q) => (
-                    <div
-                      key={String(q.quizId)}
-                      className="flex items-center justify-between gap-4 border rounded p-2"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          Quiz: {String(q.quizId).slice(-8)}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          Score: {q.score == null ? "Not graded" : q.score}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="px-2 py-1 rounded bg-indigo-600 text-white text-sm"
-                          onClick={() => fetchSubmissionForQuiz(q.quizId)}
-                        >
-                          View Submission
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {(progress?.quizzes || []).length === 0 && (
-                    <div className="text-sm text-slate-500">
-                      No quizzes recorded yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Videos</h4>
-                <div className="space-y-2">
-                  {(progress?.videosWatched || []).map((v) => (
-                    <div
-                      key={String(v.videoId)}
-                      className="flex items-center justify-between gap-4 border rounded p-2"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          Video: {String(v.videoId).slice(-8)}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          Watched: {v.watchedPercent ?? 0}%
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {(progress?.videosWatched || []).length === 0 && (
-                    <div className="text-sm text-slate-500">
-                      No video progress yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Projects</h4>
-                <div className="space-y-2">
-                  {(progress?.projects || []).map((p) => (
-                    <div
-                      key={String(p.projectId)}
-                      className="flex items-center justify-between gap-4 border rounded p-2"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          Project: {String(p.projectId).slice(-8)}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          Submitted: {p.submitted ? "Yes" : "No"} — Score:{" "}
-                          {p.score ?? "-"}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {(progress?.projects || []).length === 0 && (
-                    <div className="text-sm text-slate-500">
-                      No project progress yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">
-                  Submission Viewer & Grading
-                </h4>
-
-                {activeSubmission?.loading && <div>Loading submission…</div>}
-
-                {activeSubmission?.notFound && (
-                  <div className="p-3 rounded border text-sm text-slate-600">
-                    No submission found for this student & quiz.
-                  </div>
-                )}
-
-                {activeSubmission?.submission && (
-                  <div className="border rounded p-3 space-y-3 bg-gray-50">
-                    <div className="text-sm">
-                      <div>
-                        <strong>Submission id:</strong>{" "}
-                        {String(activeSubmission.submission._id).slice(-8)}
-                      </div>
-                      <div>
-                        <strong>Submitted at:</strong>{" "}
-                        {activeSubmission.submission.submittedAt
-                          ? new Date(
-                              activeSubmission.submission.submittedAt
-                            ).toLocaleString()
-                          : "-"}
-                      </div>
-                      <div>
-                        <strong>Total score (stored):</strong>{" "}
-                        {activeSubmission.submission.totalScore ?? 0}
-                      </div>
-                      <div>
-                        <strong>Graded:</strong>{" "}
-                        {activeSubmission.submission.graded ? "Yes" : "No"}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="font-medium text-sm mb-1">Answers</div>
-                      <div className="space-y-2">
-                        {(activeSubmission.submission.answers || []).map(
-                          (a, idx) => (
-                            <div
-                              key={idx}
-                              className="p-2 bg-white border rounded text-sm"
-                            >
-                              <div>
-                                <strong>Q:</strong>{" "}
-                                {String(a.questionId).slice(-8)}
-                              </div>
-                              <div>
-                                <strong>Answer:</strong> {a.answerText}
-                              </div>
-                              <div>
-                                <strong>Correct:</strong>{" "}
-                                {a.isCorrect ? "Yes" : "No"}
-                              </div>
-                              <div>
-                                <strong>MarksObtained:</strong>{" "}
-                                {a.marksObtained ?? "-"}
-                              </div>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-
-                    {!activeSubmission.submission.graded && (
-                      <div className="pt-2">
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="number"
-                            value={gradeValue}
-                            onChange={(e) => setGradeValue(e.target.value)}
-                            placeholder="Enter total marks"
-                            className="px-3 py-2 border rounded w-40"
-                          />
-                          <button
-                            className="px-3 py-2 rounded bg-green-600 text-white"
-                            onClick={doGrade}
-                            disabled={grading}
-                          >
-                            {grading ? "Grading…" : "Submit Grade"}
-                          </button>
-                          <button
-                            className="px-3 py-2 rounded bg-gray-200"
-                            onClick={() => setActiveSubmission(null)}
-                          >
-                            Close
-                          </button>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          This calls PUT /api/submissions/:id/grade
-                        </div>
-                      </div>
-                    )}
-
-                    {activeSubmission.submission.graded && (
-                      <div className="text-sm text-green-600">
-                        Already graded
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
