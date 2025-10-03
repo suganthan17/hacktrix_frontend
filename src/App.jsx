@@ -1,5 +1,7 @@
+// src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+// ✅ correct
 import Login from "./auth/Login";
 import Signup from "./auth/Signup";
 
@@ -22,8 +24,8 @@ import UniversityProfile from "./pages/university/UniversityProfile";
 // Quiz Page
 import TakeQuiz from "./pages/student/takeQuiz";
 
+import RequireProfileComplete from "./components/RequireProfileComplete";
 import { Toaster } from "react-hot-toast";
-
 
 function App() {
   return (
@@ -31,7 +33,7 @@ function App() {
       <Toaster
         position="top-center"
         toastOptions={{
-          duration: 4000,
+          duration: 3000,
           style: { fontSize: "16px" },
           action: { text: "✖", onClick: (toast) => toast.dismiss() },
         }}
@@ -42,24 +44,73 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
-        {/* Student Routes */}
-        <Route path="/student-dashboard" element={<StudentDashboard />} />
-        <Route path="/student-courses" element={<StudentCourses />} />
-        <Route path="/courses/:id" element={<CourseDetail />} />
-        <Route path="/student-enrolled" element={<EnrolledCourses />} />
-        <Route path="/student-projects" element={<StudentProjects />} />
-        <Route path="/student-certificates" element={<StudentCertificates />} />
+        {/* Student Routes (protected by profile completion) */}
+        <Route
+          path="/student-dashboard"
+          element={
+            <RequireProfileComplete>
+              <StudentDashboard />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/student-courses"
+          element={
+            <RequireProfileComplete>
+              <StudentCourses />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/courses/:id"
+          element={
+            <RequireProfileComplete>
+              <CourseDetail />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/student-enrolled"
+          element={
+            <RequireProfileComplete>
+              <EnrolledCourses />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/student-projects"
+          element={
+            <RequireProfileComplete>
+              <StudentProjects />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/student-certificates"
+          element={
+            <RequireProfileComplete>
+              <StudentCertificates />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/quiz/:quizId"
+          element={
+            <RequireProfileComplete>
+              <TakeQuiz />
+            </RequireProfileComplete>
+          }
+        />
+
+        {/* Profile page must remain accessible so new users can complete it */}
         <Route path="/student-profile" element={<StudentProfile />} />
 
-        {/* Quiz Route */}
-        <Route path="/quiz/:quizId" element={<TakeQuiz />} />
-
-        {/* University Routes */}
+        {/* University Routes (you can add RequireProfileComplete for universities if desired) */}
         <Route path="/university-dashboard" element={<UniversityDashboard />} />
         <Route path="/university-courses" element={<UniversityCourses />} />
         <Route path="/university-addcourse" element={<AddCourse />} />
         <Route path="/university-students" element={<UniversityStudents />} />
-        <Route path="/university-profile" element={<UniversityProfile/>} />
+        <Route path="/university-profile" element={<UniversityProfile />} />
 
         {/* 404 */}
         <Route

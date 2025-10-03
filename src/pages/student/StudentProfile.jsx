@@ -1,18 +1,37 @@
 // src/pages/student/StudentProfile.jsx
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import StudentSidebar from "../../components/StudentSidebar";
-import { Edit2, Check, X, User, FileText } from "lucide-react";
+import { Edit2, Check, X, User } from "lucide-react";
+import toast from "react-hot-toast";
 
 const BACKEND_BASE = "http://localhost:5000";
 
 function StudentProfile() {
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    location: "",
+    school: "",
+    grade: "",
+    achievements: "",
+    interests: "",
+    profilePic: null,
+    resume: null,
+    _id: null,
+    profileCompleted: false,
+    profileProgress: 0,
+    updatedAt: null,
+  });
   const [loading, setLoading] = useState(true);
   const [editSection, setEditSection] = useState(null);
   const [error, setError] = useState("");
   const [files, setFiles] = useState({ profilePic: null, resume: null });
+  const navigate = useNavigate();
 
   useEffect(() => {
+    let mounted = true;
     const fetchProfile = async () => {
       try {
         setLoading(true);
@@ -21,17 +40,16 @@ function StudentProfile() {
         });
 
         if (!res.ok) {
-          // try to parse body for debugging
+          // If unauthorized, redirect to login
+          if (res.status === 401) return navigate("/");
           const text = await res.text().catch(() => "");
           console.error("GET /api/student-profile failed", res.status, text);
           throw new Error("Failed to fetch profile");
         }
 
         const data = await res.json();
-        // backend might return { profile: {...} } or the object directly
         const raw = data?.profile || data || {};
 
-        // Normalize
         const normalized = {
           name: raw.name || "",
           email: raw.email || "",
@@ -43,25 +61,30 @@ function StudentProfile() {
           interests: raw.interests || "",
           profilePic: raw.profilePic || null,
           resume: raw.resume || null,
-          updatedAt: raw.updatedAt || raw.updated_at || null,
+          updatedAt: raw.updatedAt || raw.updated_at || raw.updatedAt || null,
           _id: raw._id || raw.id || null,
+          profileCompleted:
+            raw.profileCompleted || raw.profileCompleted === true || false,
+          profileProgress: raw.profileProgress || 0,
         };
 
-        setProfile(normalized);
+        if (mounted) setProfile((p) => ({ ...p, ...normalized }));
       } catch (err) {
         console.error("fetchProfile error:", err);
-        setError("Could not load profile.");
+        if (mounted) setError("Could not load profile.");
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     fetchProfile();
-  }, []);
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (!profile) return;
     if (type === "checkbox") {
       setProfile((prev) => ({ ...prev, [name]: !!checked }));
     } else {
@@ -73,7 +96,6 @@ function StudentProfile() {
     const { name, files: f } = e.target;
     if (!f || f.length === 0) return;
     setFiles((prev) => ({ ...prev, [name]: f[0] }));
-    // show filename or temporary preview
     if (name === "profilePic") {
       setProfile((p) => ({ ...p, profilePic: URL.createObjectURL(f[0]) }));
     }
@@ -84,9 +106,8 @@ function StudentProfile() {
 
   const handleSave = async (section) => {
     try {
-      if (!profile) return;
+      setLoading(true);
 
-      // build update object or formdata
       let updateData = {};
       let useMultipart = false;
       const fd = new FormData();
@@ -111,7 +132,6 @@ function StudentProfile() {
         fd.append("achievements", profile.achievements || "");
         fd.append("interests", profile.interests || "");
       } else if (section === "files") {
-        // attach files if selected
         if (files.profilePic) {
           fd.append("profilePic", files.profilePic);
           useMultipart = true;
@@ -122,20 +142,17 @@ function StudentProfile() {
         }
       }
 
-      // determine method & url
       const method = profile._id ? "PUT" : "POST";
       const url = `${BACKEND_BASE}/api/student-profile/`;
 
       let res;
       if (section === "files" && useMultipart) {
-        // send multipart form
         res = await fetch(url, {
           method,
           credentials: "include",
-          body: fd, // browser sets Content-Type
+          body: fd,
         });
       } else {
-        // JSON
         res = await fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
@@ -149,18 +166,17 @@ function StudentProfile() {
       try {
         body = text ? JSON.parse(text) : null;
       } catch (e) {
-        console.log(e)
+        console.log(e);
         body = text;
       }
 
       if (!res.ok) {
         console.error("Save failed", res.status, body);
-        throw new Error(
-          (body && (body.message || body.error)) || "Failed to save profile"
-        );
+        const msg =
+          (body && (body.message || body.error)) || "Failed to save profile";
+        throw new Error(msg);
       }
 
-      // merge returned profile if present
       const returned = (body && (body.profile || body)) || {};
       const merged = {
         ...profile,
@@ -176,14 +192,26 @@ function StudentProfile() {
         resume: returned.resume ?? profile.resume,
         updatedAt: returned.updatedAt ?? profile.updatedAt,
         _id: returned._id ?? profile._id,
+        profileCompleted: returned.profileCompleted ?? profile.profileCompleted,
+        profileProgress: returned.profileProgress ?? profile.profileProgress,
       };
 
       setProfile(merged);
       setEditSection(null);
-      alert("Profile saved successfully");
+
+      // Use toast instead of alert
+      if (merged.profileCompleted) {
+        toast.success("Profile completed — redirecting to dashboard.");
+        setTimeout(() => navigate("/student-dashboard"), 700);
+        return;
+      }
+
+      toast.success("Profile saved successfully");
     } catch (err) {
       console.error("handleSave error:", err);
-      alert(err.message || "Error saving profile");
+      toast.error(err.message || "Error saving profile");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -215,7 +243,6 @@ function StudentProfile() {
               </p>
             </div>
 
-            {/* Profile quick card */}
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <div className="text-sm text-gray-500">Last updated</div>
@@ -235,9 +262,18 @@ function StudentProfile() {
             {/* Basic Info */}
             <section className="p-6 border border-gray-100 rounded-xl bg-white">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-800">
-                  Basic Info
-                </h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-medium text-gray-800">
+                    Basic Info
+                  </h3>
+
+                  {/* Warning chip shown next to Basic Info header when profile incomplete */}
+                  {!profile.profileCompleted && (
+                    <div className="text-sm rounded-full px-3 py-1 bg-red-50 border border-red-200 text-red-700 font-medium">
+                      Complete the Basic Info to unlock the app
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   {editSection !== "basic" ? (
@@ -269,80 +305,91 @@ function StudentProfile() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input
-                  name="name"
-                  value={profile.name || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "basic"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "basic"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  placeholder="Full name"
-                />
-                <input
-                  name="email"
-                  value={profile.email || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "basic"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "basic"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  placeholder="Email"
-                />
-                <input
-                  name="phone"
-                  value={profile.phone || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "basic"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "basic"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  placeholder="Phone"
-                />
-                <input
-                  name="location"
-                  value={profile.location || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "basic"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "basic"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  placeholder="Location / City"
-                />
-                <input
-                  name="school"
-                  value={profile.school || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "basic"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "basic"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  placeholder="School"
-                />
-                <input
-                  name="grade"
-                  value={profile.grade || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "basic"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "basic"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  placeholder="Grade / Year"
-                />
-              </div>
+              {editSection === "basic" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    name="name"
+                    value={profile.name}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    placeholder="Full name"
+                  />
+                  <input
+                    name="email"
+                    value={profile.email}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    placeholder="Email"
+                  />
+                  <input
+                    name="phone"
+                    value={profile.phone}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    placeholder="Phone"
+                  />
+                  <input
+                    name="location"
+                    value={profile.location}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    placeholder="Location / City"
+                  />
+                  <input
+                    name="school"
+                    value={profile.school}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    placeholder="School"
+                  />
+                  <input
+                    name="grade"
+                    value={profile.grade}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    placeholder="Grade / Year"
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-3 rounded-md bg-gray-50 border text-sm">
+                    <div className="text-xs text-gray-500">Name</div>
+                    <div className="text-sm text-gray-800">
+                      {profile.name || "—"}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-md bg-gray-50 border text-sm">
+                    <div className="text-xs text-gray-500">Email</div>
+                    <div className="text-sm text-gray-800">
+                      {profile.email || "—"}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-md bg-gray-50 border text-sm">
+                    <div className="text-xs text-gray-500">Phone</div>
+                    <div className="text-sm text-gray-800">
+                      {profile.phone || "—"}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-md bg-gray-50 border text-sm">
+                    <div className="text-xs text-gray-500">Location</div>
+                    <div className="text-sm text-gray-800">
+                      {profile.location || "—"}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-md bg-gray-50 border text-sm">
+                    <div className="text-xs text-gray-500">School</div>
+                    <div className="text-sm text-gray-800">
+                      {profile.school || "—"}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-md bg-gray-50 border text-sm">
+                    <div className="text-xs text-gray-500">Grade / Year</div>
+                    <div className="text-sm text-gray-800">
+                      {profile.grade || "—"}
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Achievements & Interests */}
@@ -387,34 +434,41 @@ function StudentProfile() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <textarea
-                  name="achievements"
-                  value={profile.achievements || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "other"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "other"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  rows={4}
-                  placeholder="Achievements (awards, certifications, competitions)"
-                />
-                <textarea
-                  name="interests"
-                  value={profile.interests || ""}
-                  onChange={handleChange}
-                  disabled={editSection !== "other"}
-                  className={`w-full border p-3 rounded-md bg-white text-sm ${
-                    editSection === "other"
-                      ? "border-indigo-300"
-                      : "border-gray-200 opacity-95"
-                  }`}
-                  rows={3}
-                  placeholder="Interests (hobbies, career interests, skills)"
-                />
-              </div>
+              {editSection === "other" ? (
+                <div className="grid grid-cols-1 gap-4">
+                  <textarea
+                    name="achievements"
+                    value={profile.achievements}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    rows={4}
+                    placeholder="Achievements (awards, certifications, competitions)"
+                  />
+                  <textarea
+                    name="interests"
+                    value={profile.interests}
+                    onChange={handleChange}
+                    className="w-full border p-3 rounded-md bg-white text-sm border-indigo-300"
+                    rows={3}
+                    placeholder="Interests (hobbies, career interests, skills)"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs text-gray-500">Achievements</div>
+                    <div className="mt-1 text-sm text-gray-800 whitespace-pre-wrap">
+                      {profile.achievements || "No achievements added"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Interests</div>
+                    <div className="mt-1 text-sm text-gray-800 whitespace-pre-wrap">
+                      {profile.interests || "No interests added"}
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Files summary */}
@@ -481,7 +535,7 @@ function StudentProfile() {
                   </div>
                 </div>
 
-                {editSection === "files" && (
+                {editSection === "files" ? (
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-gray-600">
                       Profile picture (png/jpg)
@@ -492,7 +546,6 @@ function StudentProfile() {
                       onChange={handleFileChange}
                       accept="image/*"
                     />
-
                     <label className="text-xs text-gray-600">
                       Resume (pdf)
                     </label>
@@ -503,15 +556,15 @@ function StudentProfile() {
                       accept="application/pdf"
                     />
                   </div>
+                ) : (
+                  <div className="text-sm text-gray-700">
+                    {profile.profilePic
+                      ? "Profile picture available"
+                      : "No picture"}
+                    <span className="mx-2">•</span>
+                    {profile.resume ? "Resume available" : "No resume"}
+                  </div>
                 )}
-
-                <div className="text-sm text-gray-700">
-                  {profile.profilePic
-                    ? "Profile picture available"
-                    : "No picture"}
-                  <span className="mx-2">•</span>
-                  {profile.resume ? "Resume available" : "No resume"}
-                </div>
               </div>
             </section>
           </div>

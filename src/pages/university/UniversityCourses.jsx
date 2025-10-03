@@ -7,7 +7,6 @@ import {
   Trash2,
   Users,
   Edit2,
-  Eye,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -123,21 +122,21 @@ export default function UniversityCourses() {
           {/* header */}
           <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-900">
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
                 My Courses
               </h1>
-              <p className="text-sm text-slate-500 mt-1">
-                Grid or List view — darker, modern buttons. “View Students”
-                replaces View.
+              <p className="text-sm text-slate-500 mt-1 max-w-xl">
+                Manage your course catalogue — a modern, clean listing with clear actions. Switch between grid and list layouts for different workflows.
               </p>
             </div>
+
             <div className="flex items-center gap-3">
-              <div className="inline-flex items-center rounded-full bg-white shadow-sm border border-gray-200 p-1">
+              <div className="inline-flex items-center rounded-full bg-white shadow border border-gray-200 p-1">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`px-3 py-1 rounded-full text-sm ${
+                  className={`px-3 py-1 rounded-full text-sm transition-colors ${
                     viewMode === "grid"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-gradient-to-r from-indigo-600 to-blue-500 text-white shadow"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -145,18 +144,19 @@ export default function UniversityCourses() {
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`px-3 py-1 rounded-full text-sm ${
+                  className={`px-3 py-1 rounded-full text-sm transition-colors ${
                     viewMode === "list"
-                      ? "bg-pink-600 text-white"
+                      ? "bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   List
                 </button>
               </div>
+
               <Link
                 to="/university-addcourse"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white shadow-md bg-gradient-to-r from-indigo-700 to-blue-600 hover:from-indigo-800 hover:to-blue-700"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white shadow-md bg-gradient-to-r from-indigo-700 to-blue-600 hover:from-indigo-800 hover:to-blue-700 transform hover:-translate-y-0.5 transition"
               >
                 Add Course
               </Link>
@@ -169,7 +169,7 @@ export default function UniversityCourses() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="animate-pulse bg-white rounded-2xl p-4 h-44 shadow-sm border border-gray-100"
+                  className="animate-pulse bg-white rounded-2xl p-4 h-52 shadow-sm border border-gray-100"
                 />
               ))}
             </div>
@@ -182,7 +182,15 @@ export default function UniversityCourses() {
               <div className="text-lg font-medium text-slate-700">
                 No courses to show.
               </div>
-              <div className="mt-3 text-sm">Add a course to get started.</div>
+              <div className="mt-3 text-sm">Use "Add Course" to create your first course.</div>
+              <div className="mt-6">
+                <Link
+                  to="/university-addcourse"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white shadow-md bg-gradient-to-r from-indigo-600 to-blue-500"
+                >
+                  Create course
+                </Link>
+              </div>
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -191,38 +199,47 @@ export default function UniversityCourses() {
                 return (
                   <article
                     key={id}
-                    className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow hover:shadow-md transform hover:-translate-y-1 transition"
+                    className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transform hover:-translate-y-1 transition"
                   >
-                    <div className="p-4">
-                      <h3 className="text-lg font-semibold text-slate-900 truncate">
-                        {course.name || course.title}
-                      </h3>
-                      <div className="text-xs text-slate-400 mt-2 flex items-center gap-3">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                          {course.category || "General"}
-                        </span>
-                        <span>{fmtDateSafe(course.createdAt)}</span>
+                    <div className="p-5 flex flex-col h-full">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-slate-900 truncate">
+                            {course.name || course.title}
+                          </h3>
+                          <div className="text-xs text-slate-400 mt-2 flex items-center gap-3">
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+                              {course.category || "General"}
+                            </span>
+                            <span>{fmtDateSafe(course.createdAt)}</span>
+                          </div>
+                        </div>
+
+                      
                       </div>
-                      <p className="text-sm text-slate-500 mt-3 line-clamp-3">
+
+                      <p className="text-sm text-slate-500 mt-4 line-clamp-4">
                         {course.description || "No description provided."}
                       </p>
 
-                      <div className="mt-4 flex items-center gap-3 justify-end">
+                      <div className="mt-5 flex items-center gap-3 justify-end">
                         <Link
                           to="/university-students"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-white border border-gray-100 text-slate-700 hover:bg-slate-50"
+                          title={`View students for ${course.name}`}
                         >
                           <Users className="w-4 h-4" /> View Students
                         </Link>
                         <Link
                           to={`/university-course-edit/${id}`}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-slate-600 text-white hover:bg-slate-700"
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-slate-800 text-white hover:bg-slate-900"
                         >
                           <Edit2 className="w-4 h-4" /> Edit
                         </Link>
                         <button
                           onClick={() => handleDelete(id)}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm bg-red-600 text-white hover:bg-red-700"
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-red-600 text-white hover:bg-red-700"
+                          title="Delete course"
                         >
                           <Trash2 className="w-4 h-4" /> Delete
                         </button>
@@ -233,8 +250,8 @@ export default function UniversityCourses() {
               })}
             </div>
           ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="grid grid-cols-12 gap-4 items-center px-4 py-3 border-b border-gray-100 text-xs text-slate-500 bg-slate-50">
+            <div className="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden">
+              <div className="grid grid-cols-12 gap-4 items-center px-6 py-3 border-b border-gray-100 text-xs text-slate-500 bg-slate-50">
                 <div className="col-span-7">Course</div>
                 <div className="col-span-3 text-center">Category</div>
                 <div className="col-span-2 text-right">Created</div>
@@ -245,46 +262,48 @@ export default function UniversityCourses() {
                   return (
                     <div
                       key={id}
-                      className="grid grid-cols-12 gap-4 items-center px-4 py-3 hover:bg-slate-50 transition border-b last:border-b-0"
+                      className="grid grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-slate-50 transition border-b last:border-b-0"
                     >
-                      <div className="col-span-7 flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded border bg-slate-100 flex items-center justify-center text-slate-700 font-semibold">
+                      <div className="col-span-7 flex items-center gap-4 min-w-0">
+                        <div className="w-14 h-14 rounded-lg border bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center text-indigo-700 font-semibold text-lg">
                           {initials(course.name)}
                         </div>
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-slate-900 truncate">
                             {course.name || course.title}
                           </div>
-                          <div className="text-xs text-slate-400 truncate">
+                          <div className="text-xs text-slate-400 truncate mt-1">
                             {course.description || "-"}
                           </div>
                         </div>
                       </div>
+
                       <div className="col-span-3 text-center">
-                        <div className="text-sm text-slate-700">
-                          {course.category || "General"}
-                        </div>
+                        <div className="text-sm text-slate-700">{course.category || "General"}</div>
                       </div>
+
                       <div className="col-span-2 text-right flex items-center gap-3 justify-end">
-                        <div className="text-sm text-slate-500">
-                          {fmtDateSafe(course.createdAt)}
-                        </div>
+                        <div className="text-sm text-slate-500">{fmtDateSafe(course.createdAt)}</div>
+
                         <Link
                           to={`/university-students`}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-indigo-600 hover:text-indigo-800"
                           aria-label={`View Students for ${course.name}`}
                         >
                           <Users className="w-4 h-4" />
                         </Link>
+
                         <Link
                           to={`/university-course-edit/${id}`}
                           className="text-slate-600 hover:text-slate-900"
                         >
                           <Edit2 className="w-4 h-4" />
                         </Link>
+
                         <button
                           onClick={() => handleDelete(id)}
                           className="text-red-600 hover:text-red-800"
+                          aria-label={`Delete ${course.name}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -308,25 +327,26 @@ export default function UniversityCourses() {
                 </span>{" "}
                 of <span className="font-medium">{filtered.length}</span>
               </div>
-              <div className="inline-flex items-center gap-2">
+
+              <nav className="inline-flex items-center gap-2 bg-white border border-gray-100 rounded-lg shadow-sm px-2 py-1">
                 <button
                   onClick={() => setPage((p) => clamp(p - 1, 1, totalPages))}
                   disabled={page === 1}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded disabled:opacity-50 text-slate-600 hover:text-slate-900"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <div className="px-3 py-1 text-sm bg-white border rounded">
-                  {page} / {totalPages}
-                </div>
+
+                <div className="px-3 py-1 text-sm bg-slate-50 rounded">{page} / {totalPages}</div>
+
                 <button
                   onClick={() => setPage((p) => clamp(p + 1, 1, totalPages))}
                   disabled={page === totalPages}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded disabled:opacity-50 text-slate-600 hover:text-slate-900"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
-              </div>
+              </nav>
             </div>
           )}
         </div>

@@ -1,21 +1,16 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+// src/pages/university/UniversityDashboard.jsx
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import UniversitySidebar from "../../components/UniversitySidebar";
 import StudentProgressModal from "../../components/StudentProgressModal";
 import toast, { Toaster } from "react-hot-toast";
 import { BookOpen, Users, RefreshCw, ArrowRight } from "lucide-react";
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend,
   PieChart,
   Pie,
   Cell,
-  LabelList,
+  Tooltip,
+  Legend,
 } from "recharts";
 
 const BACKEND_BASE = "http://localhost:5000";
@@ -33,7 +28,6 @@ const COLORS = [
 async function safeFetchJson(url, options = {}) {
   const res = await fetch(url, { credentials: "include", ...options });
 
-  // read text safely with a minimal log on failure
   let txt = "";
   try {
     txt = await res.text();
@@ -106,7 +100,6 @@ export default function UniversityDashboard() {
       const enrollMap = {};
       const recent = [];
 
-      // fetch enrollments concurrently and handle failures without silent empty catch blocks
       const promises = courseArr.map((c) => fetchEnrollmentsForCourse(c._id));
       const settled = await Promise.allSettled(promises);
 
@@ -123,7 +116,6 @@ export default function UniversityDashboard() {
             });
           }
         } else {
-          // keep a record and log the error for debugging
           enrollMap[c._id] = [];
           console.debug(
             `loadDashboard: failed to fetch enrollments for course ${c._id}`,
@@ -133,7 +125,7 @@ export default function UniversityDashboard() {
       }
 
       recent.sort((a, b) => b.ts - a.ts);
-      setRecentEnrollments(recent.slice(0, 8));
+      setRecentEnrollments(recent.slice(0, 12)); // keep all fetched, we'll display top 3
       setEnrollmentsByCourse(enrollMap);
     } catch (err) {
       toast.error(err?.message || "Failed to load dashboard");
@@ -163,28 +155,11 @@ export default function UniversityDashboard() {
       .sort((a, b) => b.count - a.count);
   }, [courses, enrollmentsByCourse]);
 
-  // Prepare wave data: keep top N and add a small smoothing by inserting tiny intermediate points
-  const waveData = useMemo(() => {
-    const top = studentsPerCourseData.slice(0, 10);
-    // If no data, return empty
-    if (!top.length) return [];
-
-    // Map into objects with short names (trim if too long)
-    const mapped = top.map((d, i) => ({
-      idx: i,
-      name: d.name.length > 20 ? d.name.slice(0, 18) + "…" : d.name,
-      count: d.count,
-    }));
-
-    // Optionally add small "spline" points between each pair to make the area appear more flowing
-    // Recharts with type="monotone" is already smooth; we keep data as-is for clarity
-    return mapped;
-  }, [studentsPerCourseData]);
-
-  const pieData = useMemo(
+  // Use the same model as "Top Distribution": donut chart data
+  const donutData = useMemo(
     () =>
       studentsPerCourseData
-        .slice(0, 6)
+        .slice(0, 8)
         .map((c) => ({ name: c.name, value: c.count })),
     [studentsPerCourseData]
   );
@@ -198,6 +173,14 @@ export default function UniversityDashboard() {
     if (!studentObj) return toast.error("Student information missing");
     setSelectedStudent(studentObj);
     setModalOpen(true);
+  };
+
+  // small helper for avatar initials
+  const initials = (name) => {
+    if (!name) return "NA";
+    const parts = String(name).split(" ").filter(Boolean);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
   };
 
   return (
@@ -215,6 +198,7 @@ export default function UniversityDashboard() {
                 Overview of courses and registrations
               </p>
             </div>
+
             <div className="flex items-center gap-3">
               <button
                 onClick={loadDashboard}
@@ -227,8 +211,9 @@ export default function UniversityDashboard() {
             </div>
           </div>
 
+          {/* Top stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-            <div className="rounded-2xl p-5 shadow-md bg-white/60 backdrop-blur-md border border-gray-100 flex items-center gap-4">
+            <div className="rounded-2xl p-5 shadow-md bg-white/70 backdrop-blur-sm border border-gray-100 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-white text-indigo-600 shadow-sm">
                 <BookOpen className="h-6 w-6" />
               </div>
@@ -240,7 +225,7 @@ export default function UniversityDashboard() {
               </div>
             </div>
 
-            <div className="rounded-2xl p-5 shadow-md bg-white/60 backdrop-blur-md border border-gray-100 flex items-center gap-4">
+            <div className="rounded-2xl p-5 shadow-md bg-white/70 backdrop-blur-sm border border-gray-100 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-white text-emerald-600 shadow-sm">
                 <Users className="h-6 w-6" />
               </div>
@@ -254,7 +239,7 @@ export default function UniversityDashboard() {
               </div>
             </div>
 
-            <div className="rounded-2xl p-5 shadow-md bg-white/60 backdrop-blur-md border border-gray-100 flex items-center gap-4">
+            <div className="rounded-2xl p-5 shadow-md bg-white/70 backdrop-blur-sm border border-gray-100 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-white text-slate-600 shadow-sm">
                 <span className="h-6 w-6 inline-block" />
               </div>
@@ -270,173 +255,165 @@ export default function UniversityDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* SINGLE DONUT (students per course) - replaces previous area and pie */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <section className="lg:col-span-2 bg-white rounded-2xl p-5 shadow">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-slate-800">
-                  Students per Course
+                  Course Registrations
                 </h2>
                 <div className="text-xs text-slate-500">
                   {studentsPerCourseData.length} courses
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* --- WAVE: AreaChart with smooth curve (monotone) --- */}
-                <div className="h-80 rounded-lg p-3 bg-slate-50 border">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={waveData}
-                      margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
-                    >
+              <div className="h-80 flex items-center justify-center">
+                {loading ? (
+                  <div className="text-slate-400">Loading chart...</div>
+                ) : donutData.length === 0 ? (
+                  <div className="text-slate-400">No registrations yet</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <PieChart>
+                      {/* Create a gradient <defs> for each slice */}
                       <defs>
-                        <linearGradient
-                          id="waveGradient"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor="#6366f1"
-                            stopOpacity={0.2}
-                          />
-                          <stop
-                            offset="60%"
-                            stopColor="#06b6d4"
-                            stopOpacity={0.12}
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#06b6d4"
-                            stopOpacity={0.04}
-                          />
-                        </linearGradient>
-
-                        <linearGradient
-                          id="waveStroke"
-                          x1="0"
-                          y1="0"
-                          x2="1"
-                          y2="0"
-                        >
-                          <stop offset="0%" stopColor="#4f46e5" />
-                          <stop offset="100%" stopColor="#06b6d4" />
-                        </linearGradient>
+                        {donutData.map((d, i) => {
+                          const base = COLORS[i % COLORS.length];
+                          // derive a lighter variant for the gradient end by reducing opacity & mixing white
+                          const light = `${base}80`; // simple approach: add alpha; acceptable in most browsers
+                          return (
+                            <linearGradient
+                              id={`grad-${i}`}
+                              key={`grad-${i}`}
+                              x1="0"
+                              y1="0"
+                              x2="1"
+                              y2="1"
+                            >
+                              <stop
+                                offset="0%"
+                                stopColor={base}
+                                stopOpacity={0.95}
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={light}
+                                stopOpacity={0.35}
+                              />
+                            </linearGradient>
+                          );
+                        })}
                       </defs>
 
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip
-                        formatter={(value, name) => {
-                          if (name === "count") return [value, "Students"];
-                          return [value, name];
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="count"
-                        stroke="url(#waveStroke)"
-                        strokeWidth={2.5}
-                        fill="url(#waveGradient)"
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
+                      <Pie
+                        data={donutData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={110}
+                        paddingAngle={4}
+                        label={({ name, percent }) =>
+                          `${
+                            name.length > 18 ? name.slice(0, 18) + "…" : name
+                          } (${(percent * 100).toFixed(0)}%)`
+                        }
                       >
-                        {/* show small labels on points */}
-                        <LabelList
-                          dataKey="count"
-                          position="top"
-                          formatter={(v) => (v ? String(v) : "")}
-                        />
-                      </Area>
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+                        {donutData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={`url(#grad-${index})`}
+                          />
+                        ))}
+                      </Pie>
 
-                <div className="p-3 border rounded-lg h-80 overflow-auto bg-white">
-                  <div className="text-xs text-slate-500 mb-2">
-                    Course registrations (top)
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {donutData.map((d, i) => (
+                  <div
+                    key={d.name}
+                    className="flex items-center gap-3 p-2 rounded border border-gray-100"
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ background: COLORS[i % COLORS.length] }}
+                    />
+                    <div className="text-sm text-slate-700 truncate">
+                      {d.name}
+                    </div>
+                    <div className="ml-auto text-sm font-semibold text-slate-900">
+                      {d.value}
+                    </div>
                   </div>
-                  <ul className="divide-y divide-slate-100">
-                    {studentsPerCourseData.map((c, i) => (
-                      <li
-                        key={c.id || c.name + i}
-                        className="flex items-center justify-between py-3 hover:bg-slate-50 px-2 rounded transition"
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-slate-800">
-                            {c.name}
-                          </div>
-                          <div className="text-xs text-slate-400">
-                            ID: {String(c.id || "").slice(-8)}
-                          </div>
-                        </div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          {c.count}
-                        </div>
-                      </li>
-                    ))}
-                    {studentsPerCourseData.length === 0 && (
-                      <li className="py-8 text-center text-slate-400">
-                        No course registrations yet
-                      </li>
-                    )}
-                  </ul>
-                </div>
+                ))}
+                {donutData.length === 0 && (
+                  <div className="col-span-2 text-center text-slate-400 py-6">
+                    No data to show
+                  </div>
+                )}
               </div>
             </section>
 
+            {/* Right column: quick list of top courses (textual) */}
             <section className="bg-white rounded-2xl p-5 shadow">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-slate-800">
-                  Distribution (Top courses)
+                  Top Courses
                 </h2>
                 <div className="text-xs text-slate-500">
-                  {pieData.length} slices
+                  {studentsPerCourseData.length} total
                 </div>
               </div>
 
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={40}
-                      outerRadius={80}
-                      paddingAngle={4}
-                      label
+              <ul className="divide-y divide-slate-100">
+                {studentsPerCourseData.slice(0, 8).map((c, idx) => (
+                  <li
+                    key={c.id || c.name}
+                    className="py-3 flex items-center gap-3"
+                  >
+                    <div
+                      className="h-10 w-10 rounded-lg flex items-center justify-center text-white font-semibold"
+                      style={{ background: COLORS[idx % COLORS.length] }}
                     >
-                      {pieData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Legend verticalAlign="bottom" height={36} />
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="mt-4 p-3 border rounded-lg text-sm text-slate-700">
-                Total courses:{" "}
-                <span className="font-semibold">{totalCourses}</span>
-              </div>
+                      {String(idx + 1)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-slate-900 truncate">
+                        {c.name}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        ID: {String(c.id || "").slice(-8)}
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      {c.count}
+                    </div>
+                  </li>
+                ))}
+                {studentsPerCourseData.length === 0 && (
+                  <li className="py-6 text-center text-slate-400">
+                    No course registrations yet
+                  </li>
+                )}
+              </ul>
             </section>
           </div>
 
+          {/* Recent enrollments - timeline style (limit to 3) */}
           <div className="mt-6 bg-white rounded-2xl p-5 shadow">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-800">
                 Recent Enrollments
               </h3>
               <div className="text-xs text-slate-500">
-                {recentEnrollments.length} shown
+                {Math.min(recentEnrollments.length, 3)} shown
               </div>
             </div>
 
@@ -445,40 +422,146 @@ export default function UniversityDashboard() {
                 No recent enrollments
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {recentEnrollments.map((r, idx) => {
-                  const e = r.enrollment;
-                  const s = e.student || e.studentId || {};
-                  return (
-                    <div
-                      key={idx}
-                      className="p-4 border rounded-lg flex items-start justify-between hover:shadow-sm transition bg-white"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-slate-900">
-                          {s.name || String(s._id || "").slice(-8)}
+              <div className="grid grid-cols-1 gap-4">
+                {/* timeline container */}
+                <div className="relative ml-6">
+                  {/* vertical line */}
+                  <div className="absolute left-1.5 top-5 bottom-0 w-0.5 bg-slate-200" />
+
+                  {recentEnrollments.slice(0, 3).map((r, idx) => {
+                    const e = r.enrollment;
+                    const s = e.student || e.studentId || {};
+                    const course = r.course || {};
+                    return (
+                      <div
+                        key={idx}
+                        className="relative flex items-start gap-4 p-4 rounded-lg border border-gray-100 bg-white hover:shadow-md transition"
+                        style={{ marginLeft: "-1.5rem" }} // pull card left so avatar aligns with line
+                      >
+                        {/* avatar / marker */}
+                        <div className="z-10 flex-shrink-0">
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-semibold shadow-sm">
+                            {initials(s.name || s.email || "ST")}
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-500">
-                          {s.email || "-"}
-                        </div>
-                        <div className="text-xs text-slate-400 mt-1">
-                          {r.course?.name || "Course"} •{" "}
-                          {e.enrolledAt
-                            ? new Date(e.enrolledAt).toLocaleDateString()
-                            : "-"}
+
+                        {/* card content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-medium text-slate-900 truncate">
+                                  {s.name ||
+                                    s.email ||
+                                    String(s._id || "").slice(-8)}
+                                </div>
+                                <div className="text-xs text-slate-400">•</div>
+                                <div className="text-xs text-slate-400">
+                                  {e.enrolledAt
+                                    ? new Date(
+                                        e.enrolledAt
+                                      ).toLocaleDateString()
+                                    : "-"}
+                                </div>
+                              </div>
+
+                              <div className="text-xs text-slate-500 mt-1 truncate">
+                                {s.email || "-"}
+                              </div>
+
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                                  {course.name
+                                    ? course.name.length > 26
+                                      ? course.name.slice(0, 23) + "…"
+                                      : course.name
+                                    : "Course"}
+                                </span>
+
+                                <span
+                                  className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                    (e.status || "enrolled").toLowerCase() ===
+                                    "enrolled"
+                                      ? "bg-indigo-50 text-indigo-700"
+                                      : "bg-amber-50 text-amber-700"
+                                  }`}
+                                >
+                                  {e.status || "enrolled"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* actions */}
+                            <div className="flex-shrink-0 flex items-center gap-2">
+                              <button
+                                onClick={() =>
+                                  openStudentProgress({ enrollment: e })
+                                }
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition"
+                                title="View progress"
+                              >
+                                View
+                                <ArrowRight className="h-4 w-4" />
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  toast.info("Messaging not yet implemented")
+                                }
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-gray-100 bg-white text-slate-600 hover:bg-slate-50"
+                                title="Message student"
+                              >
+                                {/* simple 3-dot icon */}
+                                <svg
+                                  width="14"
+                                  height="4"
+                                  viewBox="0 0 14 4"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <circle
+                                    cx="2"
+                                    cy="2"
+                                    r="2"
+                                    fill="currentColor"
+                                  />
+                                  <circle
+                                    cx="7"
+                                    cy="2"
+                                    r="2"
+                                    fill="currentColor"
+                                  />
+                                  <circle
+                                    cx="12"
+                                    cy="2"
+                                    r="2"
+                                    fill="currentColor"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openStudentProgress({ enrollment: e })}
-                          className="px-3 py-1 rounded bg-indigo-600 text-white text-sm inline-flex items-center gap-2 hover:bg-indigo-700 transition"
-                        >
-                          View <ArrowRight className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+
+                {/* footer row with CTA */}
+                <div className="flex items-center justify-end">
+                  <button
+                    onClick={() => {
+                      // if you have a students page, navigate there instead
+                      toast(
+                        "Showing all recent enrollments in the dashboard (open full list)."
+                      );
+                      // optional: loadDashboard(); // uncomment if you prefer refresh action
+                    }}
+                    className="text-sm text-indigo-600 font-medium hover:underline"
+                  >
+                    View all enrollments
+                  </button>
+                </div>
               </div>
             )}
           </div>
