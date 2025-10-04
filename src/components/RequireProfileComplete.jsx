@@ -1,10 +1,14 @@
-// MentorNet_frontend/src/components/RequireProfileComplete.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const BACKEND_BASE =  "http://localhost:5000";
+/*
+  role: "student" (default) | "university"
+  - student -> hits GET /api/student-profile/
+  - university -> hits GET /api/university-profile/
+*/
+const BACKEND_BASE = "http://localhost:5000";
 
-export default function RequireProfileComplete({ children }) {
+export default function RequireProfileComplete({ children, role = "student" }) {
   const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
 
@@ -13,51 +17,73 @@ export default function RequireProfileComplete({ children }) {
 
     (async () => {
       try {
-        const res = await fetch(`${BACKEND_BASE}/api/student-profile/`, {
+        const endpoint =
+          role === "university"
+            ? "/api/university-profile/"
+            : "/api/student-profile/";
+
+        const res = await fetch(`${BACKEND_BASE}${endpoint}`, {
           credentials: "include",
         });
 
+        // not logged in
         if (res.status === 401) {
-          // not logged in -> send to login
-          navigate("/");
+          // send to login
+          navigate("/", { replace: true });
           return;
         }
 
-        // If server says forbidden (profile incomplete for actions), redirect
+        // if backend returns 403 (forbidden) then profile is incomplete
         if (res.status === 403) {
-          navigate("/student-profile");
+          const redirectTo =
+            role === "university" ? "/university-profile" : "/student-profile";
+          navigate(redirectTo, { replace: true });
           return;
         }
 
         if (!res.ok) {
-          // allow the guard to let server-side middleware handle cases; redirect to profile as conservative fallback
-          console.warn("RequireProfileComplete: unexpected status", res.status);
-          navigate("/student-profile");
+          // unknown problem — conservative fallback: redirect to profile page so user can complete
+          const redirectTo =
+            role === "university" ? "/university-profile" : "/student-profile";
+          console.warn("RequireProfileComplete unexpected status", res.status);
+          navigate(redirectTo, { replace: true });
           return;
         }
 
-        const data = await res.json();
-        // data may be {} or a profile object; check required fields
-        const required = ["name", "email", "phone", "school", "grade"];
-        const present = required.every((k) => !!(data?.[k]));
+        const data = await res.json().catch(() => ({}));
+
+        // check required fields (same logic we used for student profile)
+        const requiredFields =
+          role === "university"
+            ? ["name", "email", "phone"] // minimal for university; change if you want stronger checks
+            : ["name", "email", "phone", "school", "grade"];
+
+        const present = requiredFields.every(
+          (k) => !!(data?.[k] || data?.profile?.[k])
+        );
 
         if (!present) {
-          navigate("/student-profile");
+          const redirectTo =
+            role === "university" ? "/university-profile" : "/student-profile";
+          navigate(redirectTo, { replace: true });
           return;
         }
 
-        // ok
+        // all good
         if (mounted) setChecking(false);
       } catch (err) {
         console.error("RequireProfileComplete error:", err);
-        navigate("/student-profile");
+        // on network/server error be conservative and redirect to profile (so user can try to fix)
+        const redirectTo =
+          role === "university" ? "/university-profile" : "/student-profile";
+        navigate(redirectTo, { replace: true });
       }
     })();
 
     return () => {
       mounted = false;
     };
-  }, [navigate]);
+  }, [navigate, role]);
 
   if (checking) {
     return (

@@ -1,11 +1,10 @@
-// src/pages/auth/Login.jsx
+// src/auth/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
-const BACKEND_BASE =
-  "http://localhost:5000";
+const BACKEND_BASE = "http://localhost:5000";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -14,51 +13,109 @@ const Login = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   const handleChange = (e) =>
-    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // ONLY check student profile if the role is "student"
-  const postLoginRedirect = async (role) => {
+  async function fetchJson(url, opts = {}) {
+    const res = await fetch(url, { credentials: "include", ...opts });
+    const text = await res.text().catch(() => "");
+    let body = null;
     try {
-      if (role !== "student") {
-        // University/admin -> go to their dashboard immediately
-        if (role === "university") return navigate("/university-dashboard");
-        return navigate("/student-dashboard");
-      }
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+    return { ok: res.ok, status: res.status, body };
+  }
 
-      // role === "student" -> check profile completeness
-      const res = await fetch(`${BACKEND_BASE}/api/student-profile/`, {
-        credentials: "include",
+  const decideAndNavigate = async () => {
+    // Get server-side session user
+    const me = await fetchJson(`${BACKEND_BASE}/api/auth/me`, {
+      method: "GET",
+    });
+    if (!me.ok) {
+      // fallback: go to root
+      navigate("/");
+      return;
+    }
+    const user = me.body || me.body?.user || {};
+    const role = user?.role || (user?.user && user.user.role) || null;
+
+    if (role === "student") {
+      // ask student profile
+      const prof = await fetchJson(`${BACKEND_BASE}/api/student-profile/`, {
+        method: "GET",
       });
 
-      // If unauthorized (not logged in), fall back to login
-      if (res.status === 401) {
-        return navigate("/");
+      if (prof.status === 401) {
+        // not logged in as student (unlikely right after login) -> go to login
+        navigate("/");
+        return;
       }
 
-      // If server forbids (profile incomplete) or any non-ok, send to student-profile
-      if (!res.ok) {
-        return navigate("/student-profile");
+      if (prof.status === 403) {
+        navigate("/student-profile");
+        return;
       }
 
-      // OK — parse body safely
-      let profile;
-      try {
-        profile = await res.json();
-      } catch {
-        profile = {};
+      if (!prof.ok) {
+        // fallback attempt: redirect to profile page so they can fix it
+        navigate("/student-profile");
+        return;
       }
 
+      // prof.body may be {} or profile object
+      const profile = prof.body?.profile || prof.body || {};
       const required = ["name", "email", "phone", "school", "grade"];
-      const complete = required.every((k) => !!profile?.[k]);
+      const complete = required.every((k) => !!profile[k]);
 
-      if (!complete) return navigate("/student-profile");
-      return navigate("/student-dashboard");
-    } catch (err) {
-      console.error("postLoginRedirect error:", err);
-      // fallback safe routes
-      if (role === "university") navigate("/university-dashboard");
-      else navigate("/student-dashboard");
+      if (!complete) {
+        navigate("/student-profile");
+        return;
+      }
+
+      // completed
+      navigate("/student-dashboard");
+      return;
     }
+
+    if (role === "university") {
+      // ask university profile
+      const prof = await fetchJson(`${BACKEND_BASE}/api/university-profile/`, {
+        method: "GET",
+      });
+
+      if (prof.status === 401) {
+        navigate("/");
+        return;
+      }
+
+      if (prof.status === 403) {
+        navigate("/university-profile");
+        return;
+      }
+
+      if (!prof.ok) {
+        // fallback: send to profile page
+        navigate("/university-profile");
+        return;
+      }
+
+      const profile = prof.body?.profile || prof.body || {};
+      // Define required fields for a university basic info (adjust if needed)
+      const requiredUni = ["name", "email", "phone"];
+      const completeUni = requiredUni.every((k) => !!profile[k]);
+
+      if (!completeUni) {
+        navigate("/university-profile");
+        return;
+      }
+
+      navigate("/university-dashboard");
+      return;
+    }
+
+    // default fallback
+    navigate("/");
   };
 
   const handleSubmit = async (e) => {
@@ -66,7 +123,7 @@ const Login = () => {
     setLoading(true);
     toast.dismiss();
 
-    const loginPromise = (async () => {
+    try {
       const res = await fetch(`${BACKEND_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,30 +131,19 @@ const Login = () => {
         body: JSON.stringify(formData),
       });
 
-      const text = await res.text().catch(() => "");
-      let data = {};
+      let data;
       try {
-        data = text ? JSON.parse(text) : {};
+        data = await res.json();
       } catch {
         data = {};
       }
 
-      if (!res.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-      return data;
-    })();
+      if (!res.ok) throw new Error(data.message || "Login failed");
 
-    try {
-      const data = await toast.promise(loginPromise, {
-        loading: "Logging in...",
-        success: (resData) => resData.message || "Logged in successfully",
-        error: (err) => err.message || "Login failed",
-      });
+      toast.success(data.message || "Logged in");
 
-      const role = data?.user?.role || data?.role || "student";
-      // short delay for toast UX
-      setTimeout(() => postLoginRedirect(role), 200);
+      // decide where to send user (checks server for profile completeness)
+      await decideAndNavigate();
     } catch (err) {
       console.error("Login error:", err);
       toast.error(err.message || "Login failed");
@@ -106,22 +152,13 @@ const Login = () => {
     }
   };
 
-  const togglePassword = (e) => {
-    e.preventDefault();
-    setPasswordVisible((v) => !v);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center px-4">
-      <Toaster position="top-center" />
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 sm:p-10">
         <div className="text-center mb-6">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
             Welcome Back!
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Log in to access your MentorNet dashboard.
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -157,9 +194,8 @@ const Login = () => {
 
             <button
               type="button"
-              onClick={togglePassword}
+              onClick={() => setPasswordVisible((v) => !v)}
               aria-label={passwordVisible ? "Hide password" : "Show password"}
-              title={passwordVisible ? "Hide password" : "Show password"}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
             >
               {passwordVisible ? (

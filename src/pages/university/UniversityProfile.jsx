@@ -1,6 +1,7 @@
+// src/pages/university/UniversityProfile.jsx
 import React, { useEffect, useState } from "react";
 import UniversitySidebar from "../../components/UniversitySidebar";
-import { Edit2, Check, X, Link as LinkIcon } from "lucide-react";
+import { Edit2, Check, X, Link as LinkIcon, AlertTriangle } from "lucide-react";
 
 const BACKEND_BASE = "http://localhost:5000";
 
@@ -40,6 +41,28 @@ function UniversityProfile() {
     };
     fetchProfile();
   }, []);
+
+  // Basic completeness check (fields required to access app)
+  const isBasicComplete = (() => {
+    if (!profile) return false;
+    const required = [
+      "name",
+      "email",
+      "phone",
+      "address",
+      // require either city or country for location
+    ];
+    const allPresent =
+      required.every((k) => !!(profile[k] && String(profile[k]).trim())) &&
+      !!(
+        profile.location &&
+        (String(profile.location.city || "").trim() ||
+          String(profile.location.country || "").trim())
+      );
+    return allPresent;
+  })();
+
+  const showBasicWarning = profile && !isBasicComplete;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -95,7 +118,10 @@ function UniversityProfile() {
         body: JSON.stringify(updateData),
       });
 
-      if (!res.ok) throw new Error("Failed to save profile");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || "Failed to save profile");
+      }
       const data = await res.json();
 
       // Ensure nested objects exist
@@ -116,7 +142,7 @@ function UniversityProfile() {
       alert("Profile saved successfully");
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      alert(err.message || "Failed to save");
     }
   };
 
@@ -174,12 +200,34 @@ function UniversityProfile() {
           <div className="bg-white shadow-md rounded-2xl p-6 space-y-6">
             {/* Basic Info */}
             <section className="p-6 border border-gray-100 rounded-xl bg-white">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-800">
-                  Basic Info
-                </h3>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800">
+                    Basic Info
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Core contact details used across the platform.
+                  </p>
+                </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  {/* Warning (shown when basic info is incomplete) */}
+                  {showBasicWarning && (
+                    <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded-md">
+                      <AlertTriangle className="h-4 w-4" />
+                      <div className="text-xs">
+                        Complete Basic Info to access the rest of the app.
+                      </div>
+                      <button
+                        onClick={() => setEditSection("basic")}
+                        className="ml-2 inline-flex items-center px-2 py-1 bg-yellow-600 text-white rounded-md text-xs hover:bg-yellow-700"
+                      >
+                        Complete now
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Edit controls */}
                   {editSection !== "basic" ? (
                     <button
                       onClick={() => setEditSection("basic")}

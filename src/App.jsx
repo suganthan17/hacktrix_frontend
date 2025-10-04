@@ -1,7 +1,6 @@
-// src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-// ✅ correct
+// auth
 import Login from "./auth/Login";
 import Signup from "./auth/Signup";
 
@@ -35,7 +34,7 @@ function App() {
         toastOptions={{
           duration: 3000,
           style: { fontSize: "16px" },
-          action: { text: "✖", onClick: (toast) => toast.dismiss() },
+          action: { text: "✖", onClick: (t) => t.dismiss() },
         }}
       />
 
@@ -48,7 +47,7 @@ function App() {
         <Route
           path="/student-dashboard"
           element={
-            <RequireProfileComplete>
+            <RequireProfileComplete role="student">
               <StudentDashboard />
             </RequireProfileComplete>
           }
@@ -56,7 +55,7 @@ function App() {
         <Route
           path="/student-courses"
           element={
-            <RequireProfileComplete>
+            <RequireProfileComplete role="student">
               <StudentCourses />
             </RequireProfileComplete>
           }
@@ -64,7 +63,7 @@ function App() {
         <Route
           path="/courses/:id"
           element={
-            <RequireProfileComplete>
+            <RequireProfileComplete role="student">
               <CourseDetail />
             </RequireProfileComplete>
           }
@@ -72,7 +71,7 @@ function App() {
         <Route
           path="/student-enrolled"
           element={
-            <RequireProfileComplete>
+            <RequireProfileComplete role="student">
               <EnrolledCourses />
             </RequireProfileComplete>
           }
@@ -80,7 +79,7 @@ function App() {
         <Route
           path="/student-projects"
           element={
-            <RequireProfileComplete>
+            <RequireProfileComplete role="student">
               <StudentProjects />
             </RequireProfileComplete>
           }
@@ -88,7 +87,7 @@ function App() {
         <Route
           path="/student-certificates"
           element={
-            <RequireProfileComplete>
+            <RequireProfileComplete role="student">
               <StudentCertificates />
             </RequireProfileComplete>
           }
@@ -96,21 +95,49 @@ function App() {
         <Route
           path="/quiz/:quizId"
           element={
-            <RequireProfileComplete>
+            <RequireProfileComplete role="student">
               <TakeQuiz />
             </RequireProfileComplete>
           }
         />
 
-        {/* Profile page must remain accessible so new users can complete it */}
+        {/* Profile pages remain accessible so new users can complete them */}
         <Route path="/student-profile" element={<StudentProfile />} />
-
-        {/* University Routes (you can add RequireProfileComplete for universities if desired) */}
-        <Route path="/university-dashboard" element={<UniversityDashboard />} />
-        <Route path="/university-courses" element={<UniversityCourses />} />
-        <Route path="/university-addcourse" element={<AddCourse />} />
-        <Route path="/university-students" element={<UniversityStudents />} />
         <Route path="/university-profile" element={<UniversityProfile />} />
+
+        {/* University Routes (protected by profile completion) */}
+        <Route
+          path="/university-dashboard"
+          element={
+            <RequireProfileComplete role="university">
+              <UniversityDashboard />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/university-courses"
+          element={
+            <RequireProfileComplete role="university">
+              <UniversityCourses />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/university-addcourse"
+          element={
+            <RequireProfileComplete role="university">
+              <AddCourse />
+            </RequireProfileComplete>
+          }
+        />
+        <Route
+          path="/university-students"
+          element={
+            <RequireProfileComplete role="university">
+              <UniversityStudents />
+            </RequireProfileComplete>
+          }
+        />
 
         {/* 404 */}
         <Route
