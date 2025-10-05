@@ -61,6 +61,10 @@ export default function TakeQuiz() {
   const [existingSubmission, setExistingSubmission] = useState(null);
 
   useEffect(() => {
+    console.log(questions)
+  },[questions])
+
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
@@ -223,7 +227,9 @@ export default function TakeQuiz() {
           {/* Questions */}
           <div className="space-y-6">
             {questions.map((q, idx) => (
+            
               <div key={q._id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+              {console.log("his",q,idx)}
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-sm text-slate-500 mb-1">Question {idx + 1}</div>

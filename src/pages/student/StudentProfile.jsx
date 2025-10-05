@@ -47,7 +47,7 @@ function StudentProfile() {
       try {
         setLoading(true);
 
-        const res = await axios.get(`${BACKEND_BASE}/api/student-profile/`, {
+        const res = await axios.get(`${BACKEND_BASE}/api/student-profile/me`, {
           withCredentials: true,
         });
 
@@ -175,7 +175,7 @@ function StudentProfile() {
       }
 
       const method = profile._id ? "put" : "post";
-      const url = `${BACKEND_BASE}/api/student-profile/`;
+      const url = `${BACKEND_BASE}/api/student-profile/me`;
 
       let res;
       if (section === "files" && useMultipart) {
