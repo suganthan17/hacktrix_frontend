@@ -1,1 +1,115 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design system tokens (HSL values) */
+:root {
+  --background: 220 25% 97%;
+  --foreground: 220 20% 15%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 220 20% 15%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 20% 15%;
+
+  --primary: 220 90% 56%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 15% 95%;
+  --secondary-foreground: 220 20% 15%;
+
+  --muted: 220 15% 95%;
+  --muted-foreground: 220 10% 45%;
+
+  --accent: 270 75% 60%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 15% 88%;
+  --input: 220 15% 88%;
+  --ring: 220 90% 56%;
+
+  --radius: 0.75rem;
+
+  --gradient-primary: linear-gradient(135deg, hsl(220 90% 56%), hsl(270 75% 60%));
+  --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 25% 99%));
+  --shadow-soft: 0 2px 8px hsla(220, 20%, 15%, 0.06);
+  --shadow-medium: 0 4px 16px hsla(220, 20%, 15%, 0.08);
+
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+/* Small helper utilities using tokens */
+:root {
+  --bg: hsl(var(--background));
+  --fg: hsl(var(--foreground));
+  --card-bg: hsl(var(--card));
+  --primary-color: hsl(var(--primary));
+  --accent-color: hsl(var(--accent));
+  --muted-fore: hsl(var(--muted-foreground));
+}
+
+/* Base styles */
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-[var(--bg)] text-[var(--fg)] antialiased;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+}
+
+/* Components layer */
+@layer components {
+  .card {
+    @apply bg-[var(--card-bg)] rounded-[var(--radius)] p-4 shadow-md border;
+    border-color: hsl(var(--border));
+  }
+
+  .stat {
+    @apply p-4 rounded-lg;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.95));
+    box-shadow: var(--shadow-soft);
+  }
+
+  .dashboard-header {
+    @apply flex items-center justify-between gap-4;
+  }
+
+  .course-card {
+    @apply border rounded-lg p-4 flex flex-col gap-3;
+    border-color: hsl(var(--border));
+    background: var(--gradient-card);
+  }
+
+  .pill {
+    @apply text-sm font-semibold px-3 py-1 rounded-full;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-md text-white;
+    background: var(--primary-color);
+  }
+}
+
+/* Utilities */
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+.gradient-primary {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

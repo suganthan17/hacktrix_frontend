@@ -1,12 +1,10 @@
-
-
-
 // src/pages/student/StudentProfile.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentSidebar from "../../components/StudentSidebar";
 import { Edit2, Check, X, User } from "lucide-react";
 import toast from "react-hot-toast";
+import axios from "axios";
 
 const BACKEND_BASE = "http://localhost:5000";
 
@@ -26,6 +24,16 @@ function StudentProfile() {
     profileCompleted: false,
     profileProgress: 0,
     updatedAt: null,
+    // stats defaults (added from project version)
+    coursesEnrolled: 0,
+    completedCourses: 0,
+    totalLessons: 0,
+    completedLessons: 0,
+    completionRate: 0,
+    quizCount: 0,
+    quizAverage: 0,
+    streak: 0,
+    chartData: [],
   });
   const [loading, setLoading] = useState(true);
   const [editSection, setEditSection] = useState(null);
@@ -38,21 +46,15 @@ function StudentProfile() {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${BACKEND_BASE}/api/student-profile/`, {
-          credentials: "include",
+
+        const res = await axios.get(`${BACKEND_BASE}/api/student-profile/`, {
+          withCredentials: true,
         });
 
-        if (!res.ok) {
-          // If unauthorized, redirect to login
-          if (res.status === 401) return navigate("/");
-          const text = await res.text().catch(() => "");
-          console.error("GET /api/student-profile failed", res.status, text);
-          throw new Error("Failed to fetch profile");
-        }
+        const data = res.data ?? {};
+        const raw = data?.profile ?? data ?? {};
 
-        const data = await res.json();
-        const raw = data?.profile || data || {};
-
+        // normalized default values
         const normalized = {
           name: raw.name || "",
           email: raw.email || "",
@@ -64,16 +66,38 @@ function StudentProfile() {
           interests: raw.interests || "",
           profilePic: raw.profilePic || null,
           resume: raw.resume || null,
-          updatedAt: raw.updatedAt || raw.updated_at || raw.updatedAt || null,
+          updatedAt: raw.updatedAt || raw.updated_at || null,
           _id: raw._id || raw.id || null,
           profileCompleted:
-            raw.profileCompleted || raw.profileCompleted === true || false,
-          profileProgress: raw.profileProgress || 0,
+            raw.profileCompleted === true || raw.profileCompleted === "true"
+              ? true
+              : false,
+          profileProgress:
+            typeof raw.profileProgress === "number" ? raw.profileProgress : 0,
+          // stats fields
+          coursesEnrolled:
+            typeof raw.coursesEnrolled === "number" ? raw.coursesEnrolled : 0,
+          completedCourses:
+            typeof raw.completedCourses === "number" ? raw.completedCourses : 0,
+          totalLessons:
+            typeof raw.totalLessons === "number" ? raw.totalLessons : 0,
+          completedLessons:
+            typeof raw.completedLessons === "number" ? raw.completedLessons : 0,
+          completionRate:
+            typeof raw.completionRate === "number" ? raw.completionRate : 0,
+          quizCount: typeof raw.quizCount === "number" ? raw.quizCount : 0,
+          quizAverage: typeof raw.quizAverage === "number" ? raw.quizAverage : 0,
+          streak: typeof raw.streak === "number" ? raw.streak : 0,
+          chartData: Array.isArray(raw.chartData) ? raw.chartData : [],
         };
 
         if (mounted) setProfile((p) => ({ ...p, ...normalized }));
       } catch (err) {
         console.error("fetchProfile error:", err);
+        // handle unauthorized (axios exposes status)
+        if (err?.response?.status === 401) {
+          return navigate("/");
+        }
         if (mounted) setError("Could not load profile.");
       } finally {
         if (mounted) setLoading(false);
@@ -111,6 +135,11 @@ function StudentProfile() {
     try {
       setLoading(true);
 
+      if (!profile) {
+        toast.error("No profile data to save");
+        return;
+      }
+
       let updateData = {};
       let useMultipart = false;
       const fd = new FormData();
@@ -145,42 +174,32 @@ function StudentProfile() {
         }
       }
 
-      const method = profile._id ? "PUT" : "POST";
+      const method = profile._id ? "put" : "post";
       const url = `${BACKEND_BASE}/api/student-profile/`;
 
       let res;
       if (section === "files" && useMultipart) {
-        res = await fetch(url, {
+        res = await axios({
           method,
-          credentials: "include",
-          body: fd,
+          url,
+          data: fd,
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        res = await fetch(url, {
+        res = await axios({
           method,
+          url,
+          data: updateData,
+          withCredentials: true,
           headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(updateData),
         });
       }
 
-      const text = await res.text().catch(() => "");
-      let body = null;
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch (e) {
-        console.log(e);
-        body = text;
-      }
-
-      if (!res.ok) {
-        console.error("Save failed", res.status, body);
-        const msg =
-          (body && (body.message || body.error)) || "Failed to save profile";
-        throw new Error(msg);
-      }
-
+      const body = res.data ?? {};
       const returned = (body && (body.profile || body)) || {};
+
+      // merge returned fields while preserving stats unless returned
       const merged = {
         ...profile,
         name: returned.name ?? profile.name,
@@ -196,13 +215,44 @@ function StudentProfile() {
         updatedAt: returned.updatedAt ?? profile.updatedAt,
         _id: returned._id ?? profile._id,
         profileCompleted: returned.profileCompleted ?? profile.profileCompleted,
-        profileProgress: returned.profileProgress ?? profile.profileProgress,
+        profileProgress:
+          typeof returned.profileProgress === "number"
+            ? returned.profileProgress
+            : profile.profileProgress,
+        // stats: prefer numbers from returned payload if present
+        coursesEnrolled:
+          typeof returned.coursesEnrolled === "number"
+            ? returned.coursesEnrolled
+            : profile.coursesEnrolled,
+        completedCourses:
+          typeof returned.completedCourses === "number"
+            ? returned.completedCourses
+            : profile.completedCourses,
+        totalLessons:
+          typeof returned.totalLessons === "number"
+            ? returned.totalLessons
+            : profile.totalLessons,
+        completedLessons:
+          typeof returned.completedLessons === "number"
+            ? returned.completedLessons
+            : profile.completedLessons,
+        completionRate:
+          typeof returned.completionRate === "number"
+            ? returned.completionRate
+            : profile.completionRate,
+        quizCount:
+          typeof returned.quizCount === "number" ? returned.quizCount : profile.quizCount,
+        quizAverage:
+          typeof returned.quizAverage === "number"
+            ? returned.quizAverage
+            : profile.quizAverage,
+        streak: typeof returned.streak === "number" ? returned.streak : profile.streak,
+        chartData: Array.isArray(returned.chartData) ? returned.chartData : profile.chartData,
       };
 
       setProfile(merged);
       setEditSection(null);
 
-      // Use toast instead of alert
       if (merged.profileCompleted) {
         toast.success("Profile completed — redirecting to dashboard.");
         setTimeout(() => navigate("/student-dashboard"), 700);
@@ -212,7 +262,12 @@ function StudentProfile() {
       toast.success("Profile saved successfully");
     } catch (err) {
       console.error("handleSave error:", err);
-      toast.error(err.message || "Error saving profile");
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err.message ||
+        "Error saving profile";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -270,7 +325,6 @@ function StudentProfile() {
                     Basic Info
                   </h3>
 
-                  {/* Warning chip shown next to Basic Info header when profile incomplete */}
                   {!profile.profileCompleted && (
                     <div className="text-sm rounded-full px-3 py-1 bg-red-50 border border-red-200 text-red-700 font-medium">
                       Complete the Basic Info to unlock the app
@@ -549,9 +603,7 @@ function StudentProfile() {
                       onChange={handleFileChange}
                       accept="image/*"
                     />
-                    <label className="text-xs text-gray-600">
-                      Resume (pdf)
-                    </label>
+                    <label className="text-xs text-gray-600">Resume (pdf)</label>
                     <input
                       type="file"
                       name="resume"
@@ -561,9 +613,7 @@ function StudentProfile() {
                   </div>
                 ) : (
                   <div className="text-sm text-gray-700">
-                    {profile.profilePic
-                      ? "Profile picture available"
-                      : "No picture"}
+                    {profile.profilePic ? "Profile picture available" : "No picture"}
                     <span className="mx-2">•</span>
                     {profile.resume ? "Resume available" : "No resume"}
                   </div>

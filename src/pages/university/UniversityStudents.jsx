@@ -1,17 +1,17 @@
+// src/pages/UniversityStudents.jsx
 import React, { useEffect, useState } from "react";
 import UniversitySidebar from "../../components/UniversitySidebar";
 import StudentProgressModal from "../../components/StudentProgressModal";
 import toast, { Toaster } from "react-hot-toast";
 import {
   ArrowRight,
-  User,
   Mail,
   MapPin,
   BookOpen,
   Award,
   RefreshCw,
 } from "lucide-react";
-
+import { apiGet, API_BASE, safeFetchJson } from "../../utils/api";
 const BACKEND_BASE = "http://localhost:5000";
 
 export default function UniversityStudents() {
@@ -25,48 +25,21 @@ export default function UniversityStudents() {
   const [modalOpen, setModalOpen] = useState(false);
   const [studentProfiles, setStudentProfiles] = useState({});
 
-  async function safeFetchJson(url, options = {}) {
-    const res = await fetch(url, { credentials: "include", ...options });
-    const text = await res.text().catch(() => "");
-    const ct = (res.headers.get("content-type") || "").toLowerCase();
-    if (!res.ok) {
-      let parsed = null;
-      try {
-        parsed =
-          ct.includes("application/json") && text ? JSON.parse(text) : null;
-      } catch {
-        console.log("Failed parsing error body");
-      }
-      const msg =
-        (parsed && (parsed.message || parsed.error)) || `HTTP ${res.status}`;
-      const err = new Error(msg);
-      err.status = res.status;
-      throw err;
-    }
-    if (!ct.includes("application/json")) return null;
-    try {
-      return text ? JSON.parse(text) : null;
-    } catch {
-      return null;
-    }
-  }
+  useEffect(() => {
+    console.log("s:",studentProfiles);
+  }, [studentProfiles]);
 
+  // fetch courses for this university (assumes /api/courses/university exists)
   const fetchUniversityCourses = async () => {
     try {
       setLoadingCourses(true);
-      const res = await fetch(`${BACKEND_BASE}/api/courses/university`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Failed to load courses");
-      }
-      const data = await res.json().catch(() => []);
+      const data = await apiGet("/courses/university");
       const arr = Array.isArray(data) ? data : [];
       setCourses(arr);
       if (arr.length && !selectedCourse) setSelectedCourse(arr[0]);
     } catch (err) {
-      toast.error(err.message || "Failed to load university courses");
+      console.error(err);
+      toast.error(err?.message || "Failed to load courses");
     } finally {
       setLoadingCourses(false);
     }
@@ -79,6 +52,7 @@ export default function UniversityStudents() {
       const res = await fetch(`${BACKEND_BASE}/api/enrollments/${course._id}`, {
         credentials: "include",
       });
+      console.log("res: ",res)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || "Failed to load enrollments");
@@ -127,10 +101,12 @@ export default function UniversityStudents() {
     if (toFetch.length === 0) return;
     const promises = toFetch.map(async (id) => {
       try {
+        console.log("id : ",id)
         const data = await safeFetchJson(
           `${BACKEND_BASE}/api/student-profile/${encodeURIComponent(id)}`,
           { method: "GET" }
         );
+        
         const raw = data?.profile || data || null;
         if (!raw) return { id, profile: null };
         const normalized = {
@@ -158,11 +134,14 @@ export default function UniversityStudents() {
       if (s.status === "fulfilled" && s.value && s.value.id)
         next[s.value.id] = s.value.profile;
     }
+    console.log("net : ",next)
     setStudentProfiles(next);
   };
 
+
   useEffect(() => {
     fetchUniversityCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -171,6 +150,7 @@ export default function UniversityStudents() {
     setModalOpen(false);
     if (selectedCourse) fetchEnrollments(selectedCourse);
     else setEnrollments([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCourse]);
 
   const normalizeStudentFromEnrollment = (en) => {
@@ -193,13 +173,14 @@ export default function UniversityStudents() {
       return;
     }
     const sid = String(student._id);
+    console.log("sidL ",sid)
     let profile = studentProfiles[sid];
     if (profile === undefined) {
       try {
-        const data = await safeFetchJson(
-          `${BACKEND_BASE}/api/student-profile/${encodeURIComponent(sid)}`,
-          { method: "GET" }
-        ).catch(() => null);
+        const data = await apiGet(
+          `/student-profile/${encodeURIComponent(sid)}`
+        ).catch(() => null);  
+        console.log("data ",data)
         const raw = data?.profile || data || null;
         profile = raw
           ? {
@@ -340,6 +321,7 @@ export default function UniversityStudents() {
                               .slice(0, 2)
                               .join("")
                           : "S";
+
                       return (
                         <div
                           key={en.enrollmentId || en._id || sid}

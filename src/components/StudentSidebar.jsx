@@ -20,7 +20,7 @@ const navItems = [
   { to: "/student-enrolled", label: "My Courses", icon: ClipboardList },
   { to: "/student-profile", label: "Profile", icon: Award },
   { to: "/student-projects", label: "Projects", icon: ClipboardList },
-  { to: "/student-certificates", label: "Certificates", icon: Award },
+  // Certificates entry removed
 ];
 
 const StudentSidebar = () => {
@@ -105,17 +105,13 @@ const StudentSidebar = () => {
           title="MentorNet"
         >
           <div
-            className={`rounded-md p-1 ${
-              collapsed ? "p-0.5" : "p-2"
-            } bg-white/10 flex items-center justify-center`}
+            className={`rounded-md p-1 ${collapsed ? "p-0.5" : "p-2"} bg-white/10 flex items-center justify-center`}
           >
             <User className="w-6 h-6 text-white" />
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-tight">
-              <span className="text-2xl font-semibold tracking-tight">
-                MentorNet
-              </span>
+              <span className="text-2xl font-semibold tracking-tight">MentorNet</span>
               <span className="text-xs text-indigo-200 mt-0.5">Student</span>
             </div>
           )}
@@ -138,11 +134,7 @@ const StudentSidebar = () => {
       </div>
 
       {/* Profile */}
-      <div
-        className={`px-4 py-4 flex items-center gap-3 ${
-          collapsed ? "justify-center" : ""
-        }`}
-      >
+      <div className={`px-4 py-4 flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
         <div
           className="h-12 w-12 rounded-full flex items-center justify-center text-white font-bold shadow"
           style={{
@@ -156,12 +148,8 @@ const StudentSidebar = () => {
 
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold truncate">
-              {email ? email.split("@")[0] : "Student"}
-            </div>
-            <div className="text-xs text-indigo-200 truncate">
-              {email || "Loading..."}
-            </div>
+            <div className="text-sm font-semibold truncate">{email ? email.split("@")[0] : "Student"}</div>
+            <div className="text-xs text-indigo-200 truncate">{email || "Loading..."}</div>
           </div>
         )}
       </div>
@@ -169,24 +157,14 @@ const StudentSidebar = () => {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1">
         {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) => navClass(isActive)}
-            title={label}
-          >
+          <NavLink key={to} to={to} className={({ isActive }) => navClass(isActive)} title={label}>
             <Icon className="w-5 h-5" />
             {!collapsed && <span className="text-md">{label}</span>}
           </NavLink>
         ))}
 
         {/* Logout styled in red */}
-        <button
-          onClick={logoutHandler}
-          className={logoutBtnClass}
-          title="Logout"
-          type="button"
-        >
+        <button onClick={logoutHandler} className={logoutBtnClass} title="Logout" type="button">
           <LogOut className="w-5 h-5 text-red-400" />
           {!collapsed && <span className="text-md text-red-100">Logout</span>}
         </button>

@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import StudentSidebar from "../../components/StudentSidebar";
 import toast, { Toaster } from "react-hot-toast";
-import { Clock, Calendar, PlayCircle, Tag } from "lucide-react";
+import {
+  Search,
+  Funnel,
+  ChevronDown,
+  Clock,
+  Calendar,
+  PlayCircle,
+  Tag,
+} from "lucide-react";
 
 const BACKEND_BASE = "http://localhost:5000";
 
@@ -9,9 +17,11 @@ export default function StudentCourses() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // UI controls (search removed)
+  // UI controls
+  const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
-  const [sortBy, setSortBy] = useState("newest"); // newest | duration
+  const [sortBy, setSortBy] = useState("relevance"); // relevance | newest | duration
+  const [showFilters, setShowFilters] = useState(false);
 
   const fetchCourses = async () => {
     try {
@@ -72,9 +82,19 @@ export default function StudentCourses() {
     return ["All", ...Array.from(set)];
   }, [courses]);
 
-  // Filtered + sorted list (search removed)
+  // Filtered + sorted list
   const visibleCourses = useMemo(() => {
     let list = courses.slice();
+
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      list = list.filter(
+        (c) =>
+          (c.name || "").toLowerCase().includes(q) ||
+          (c.description || "").toLowerCase().includes(q) ||
+          (c.category || "").toLowerCase().includes(q)
+      );
+    }
 
     if (category !== "All") {
       list = list.filter((c) => c.category === category);
@@ -91,7 +111,7 @@ export default function StudentCourses() {
     }
 
     return list;
-  }, [courses, category, sortBy]);
+  }, [courses, query, category, sortBy]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -116,14 +136,37 @@ export default function StudentCourses() {
               <span className="font-medium">{courses.length}</span>
               <span className="text-xs text-slate-400 ml-2">available</span>
             </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowFilters((s) => !s)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-100 shadow-sm hover:shadow-md"
+                aria-expanded={showFilters}
+              >
+                <Funnel className="h-4 w-4 text-slate-600" />
+                <span className="text-sm text-slate-700">Filters</span>
+                <ChevronDown className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Top Controls */}
         <div className="bg-white border border-gray-100 rounded-2xl p-4 mb-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
-            {/* removed search input */}
-            <div className="flex items-center gap-3 ml-0 md:ml-auto">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="flex items-center px-3 py-2 rounded-lg bg-gray-50 border border-gray-100 w-full">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search courses, categories or topics"
+                  className="ml-3 w-full bg-transparent outline-none text-sm text-slate-700"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -141,11 +184,30 @@ export default function StudentCourses() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-3 py-2 rounded-lg border border-gray-100 bg-white text-sm"
               >
+                <option value="relevance">Relevance</option>
                 <option value="newest">Newest</option>
                 <option value="duration">Shortest duration</option>
               </select>
             </div>
           </div>
+
+          {/* optional expanded filters */}
+          {showFilters && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span>Duration &gt; 0 shows only timed courses</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Calendar className="h-4 w-4 text-slate-400" />
+                <span>Upcoming courses filter (client-side)</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Tag className="h-4 w-4 text-slate-400" />
+                <span>Use category selector to filter by tags</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content */}
