@@ -51,8 +51,8 @@ const Login = () => {
       });
 
       const role = data?.user?.role || data?.role || "";
-      // navigate to dashboard and replace history so back doesn't return to login
-      if (role === "university") navigate("/university-dashboard", { replace: true });
+      if (role === "university")
+        navigate("/university-dashboard", { replace: true });
       else navigate("/student-dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
@@ -63,15 +63,20 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 sm:p-10">
+      {/* Light pastel login box — same (smaller) size as original */}
+      <div className="w-full max-w-md bg-blue-100 border border-blue-200 rounded-3xl shadow-lg p-8 sm:p-10">
         <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Welcome Back!</h1>
-          <p className="mt-2 text-sm text-slate-500">Log in to access your MentorNet dashboard.</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
+            Welcome Back!
+          </h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Log in to access your MentorNet dashboard.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
               <Mail className="w-5 h-5" />
             </div>
             <input
@@ -81,12 +86,12 @@ const Login = () => {
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full p-4 pl-12 pr-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+              className="w-full p-4 pl-12 pr-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none text-sm text-slate-700"
             />
           </div>
 
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
               <Lock className="w-5 h-5" />
             </div>
 
@@ -97,7 +102,7 @@ const Login = () => {
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full p-4 pl-12 pr-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+              className="w-full p-4 pl-12 pr-12 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-200 outline-none text-sm text-slate-700"
             />
 
             <button
@@ -105,25 +110,29 @@ const Login = () => {
               onClick={togglePassword}
               aria-label={passwordVisible ? "Hide password" : "Show password"}
               title={passwordVisible ? "Hide password" : "Show password"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-700"
             >
-              {passwordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {passwordVisible ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
             </button>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition text-sm font-medium disabled:opacity-60"
+            className="w-full bg-blue-500 text-white p-3 rounded-xl hover:bg-blue-600 transition text-sm font-medium disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        <p className="text-center text-slate-500 mt-6 text-sm">
+        <p className="text-center text-slate-600 mt-6 text-sm">
           Don't have an account?{" "}
           <span
-            className="text-indigo-600 font-semibold cursor-pointer hover:underline"
+            className="text-blue-600 font-semibold cursor-pointer hover:underline"
             onClick={() => navigate("/signup")}
           >
             Signup

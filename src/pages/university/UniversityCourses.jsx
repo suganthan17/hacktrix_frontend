@@ -3,13 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import UniversitySidebar from "../../components/UniversitySidebar";
 import { BASE_URL } from "../../config";
 import toast, { Toaster } from "react-hot-toast";
-import {
-  Trash2,
-  Users,
-  Edit2,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Trash2, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 /* ---------- helpers ---------- */
@@ -126,7 +120,9 @@ export default function UniversityCourses() {
                 My Courses
               </h1>
               <p className="text-sm text-slate-500 mt-1 max-w-xl">
-                Manage your course catalogue — a modern, clean listing with clear actions. Switch between grid and list layouts for different workflows.
+                Manage your course catalogue — a modern, clean listing with
+                clear actions. Switch between grid and list layouts for
+                different workflows.
               </p>
             </div>
 
@@ -182,7 +178,9 @@ export default function UniversityCourses() {
               <div className="text-lg font-medium text-slate-700">
                 No courses to show.
               </div>
-              <div className="mt-3 text-sm">Use "Add Course" to create your first course.</div>
+              <div className="mt-3 text-sm">
+                Use "Add Course" to create your first course.
+              </div>
               <div className="mt-6">
                 <Link
                   to="/university-addcourse"
@@ -214,8 +212,6 @@ export default function UniversityCourses() {
                             <span>{fmtDateSafe(course.createdAt)}</span>
                           </div>
                         </div>
-
-                      
                       </div>
 
                       <p className="text-sm text-slate-500 mt-4 line-clamp-4">
@@ -230,12 +226,7 @@ export default function UniversityCourses() {
                         >
                           <Users className="w-4 h-4" /> View Students
                         </Link>
-                        <Link
-                          to={`/university-course-edit/${id}`}
-                          className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-slate-800 text-white hover:bg-slate-900"
-                        >
-                          <Edit2 className="w-4 h-4" /> Edit
-                        </Link>
+
                         <button
                           onClick={() => handleDelete(id)}
                           className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-red-600 text-white hover:bg-red-700"
@@ -279,11 +270,15 @@ export default function UniversityCourses() {
                       </div>
 
                       <div className="col-span-3 text-center">
-                        <div className="text-sm text-slate-700">{course.category || "General"}</div>
+                        <div className="text-sm text-slate-700">
+                          {course.category || "General"}
+                        </div>
                       </div>
 
                       <div className="col-span-2 text-right flex items-center gap-3 justify-end">
-                        <div className="text-sm text-slate-500">{fmtDateSafe(course.createdAt)}</div>
+                        <div className="text-sm text-slate-500">
+                          {fmtDateSafe(course.createdAt)}
+                        </div>
 
                         <Link
                           to={`/university-students`}
@@ -291,13 +286,6 @@ export default function UniversityCourses() {
                           aria-label={`View Students for ${course.name}`}
                         >
                           <Users className="w-4 h-4" />
-                        </Link>
-
-                        <Link
-                          to={`/university-course-edit/${id}`}
-                          className="text-slate-600 hover:text-slate-900"
-                        >
-                          <Edit2 className="w-4 h-4" />
                         </Link>
 
                         <button
@@ -337,7 +325,9 @@ export default function UniversityCourses() {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                <div className="px-3 py-1 text-sm bg-slate-50 rounded">{page} / {totalPages}</div>
+                <div className="px-3 py-1 text-sm bg-slate-50 rounded">
+                  {page} / {totalPages}
+                </div>
 
                 <button
                   onClick={() => setPage((p) => clamp(p + 1, 1, totalPages))}

@@ -28,7 +28,7 @@ const StudentSignup = () => {
       if (!res.ok) throw new Error(data.message || "Signup failed");
 
       toast.success(data.message || "Signup successful", { duration: 2000 });
-      navigate("/");
+      navigate("/student-dashboard");
     } catch (err) {
       toast.error(err.message || "Signup failed");
     } finally {
@@ -42,7 +42,7 @@ const StudentSignup = () => {
 
       {/* Name */}
       <div className="relative">
-        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 w-5 h-5" />
         <input
           type="text"
           name="name"
@@ -50,13 +50,13 @@ const StudentSignup = () => {
           value={formData.name}
           onChange={handleChange}
           required
-          className="w-full p-4 pl-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+          className="w-full p-4 pl-12 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-200 outline-none text-sm text-slate-700"
         />
       </div>
 
       {/* Email */}
       <div className="relative">
-        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 w-5 h-5" />
         <input
           type="email"
           name="email"
@@ -64,13 +64,13 @@ const StudentSignup = () => {
           value={formData.email}
           onChange={handleChange}
           required
-          className="w-full p-4 pl-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+          className="w-full p-4 pl-12 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-200 outline-none text-sm text-slate-700"
         />
       </div>
 
       {/* Password */}
       <div className="relative">
-        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 w-5 h-5" />
         <input
           type={passwordVisible ? "text" : "password"}
           name="password"
@@ -78,13 +78,12 @@ const StudentSignup = () => {
           value={formData.password}
           onChange={handleChange}
           required
-          className="w-full p-4 pl-12 pr-12 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+          className="w-full p-4 pl-12 pr-12 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-200 outline-none text-sm text-slate-700"
         />
         <button
           type="button"
           onClick={() => setPasswordVisible((v) => !v)}
-          aria-label={passwordVisible ? "Hide password" : "Show password"}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-700"
         >
           {passwordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
         </button>
@@ -93,7 +92,7 @@ const StudentSignup = () => {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition text-sm font-medium disabled:opacity-60"
+        className="w-full bg-blue-500 text-white p-3 rounded-xl hover:bg-blue-600 transition text-sm font-medium disabled:opacity-60"
       >
         {loading ? "Signing up..." : "Signup"}
       </button>
