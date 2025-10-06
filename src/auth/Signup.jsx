@@ -1,12 +1,24 @@
+// src/auth/Signup.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import StudentSignup from "./StudentSignup.jsx";
-import UniversitySignup from "./UniversitySignup.jsx";
+import StudentSignup from "./StudentSignup";
+import UniversitySignup from "./UniversitySignup";
 import { User, Building } from "lucide-react";
+import toast from "react-hot-toast";
 
 const Signup = () => {
   const [role, setRole] = useState("student");
   const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSuccess = (data = {}) => {
+    const userRole = data?.user?.role || data?.role || role;
+    toast.success("Signup successful");
+    // replace so back button won't go to signup
+    if (userRole === "university")
+      navigate("/university-dashboard", { replace: true });
+    else navigate("/student-dashboard", { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center px-4">
@@ -33,7 +45,11 @@ const Signup = () => {
             }`}
             aria-pressed={role === "student"}
           >
-            <User className={`w-4 h-4 ${role === "student" ? "text-white" : "text-slate-500"}`} />
+            <User
+              className={`w-4 h-4 ${
+                role === "student" ? "text-white" : "text-slate-500"
+              }`}
+            />
             Student
           </button>
 
@@ -46,7 +62,11 @@ const Signup = () => {
             }`}
             aria-pressed={role === "university"}
           >
-            <Building className={`w-4 h-4 ${role === "university" ? "text-white" : "text-slate-500"}`} />
+            <Building
+              className={`w-4 h-4 ${
+                role === "university" ? "text-white" : "text-slate-500"
+              }`}
+            />
             University
           </button>
         </div>
@@ -56,14 +76,24 @@ const Signup = () => {
         </h2>
 
         <div className="space-y-4">
-          {role === "student" ? <StudentSignup /> : <UniversitySignup />}
+          {role === "student" ? (
+            <StudentSignup
+              onSuccess={handleSuccess}
+              setSubmitting={setSubmitting}
+            />
+          ) : (
+            <UniversitySignup
+              onSuccess={handleSuccess}
+              setSubmitting={setSubmitting}
+            />
+          )}
         </div>
 
         <p className="text-center text-slate-500 mt-6 text-sm">
           Already have an account?{" "}
           <span
             className="text-indigo-600 font-semibold cursor-pointer hover:underline"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/login")}
           >
             Login
           </span>

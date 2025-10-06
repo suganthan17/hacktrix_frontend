@@ -2,7 +2,11 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-// auth
+// Landing Page
+import LandingPage from "./components/LandingPage";
+import PublicRoute from "./components/PublicRoute";
+
+// Auth
 import Login from "./auth/Login";
 import Signup from "./auth/Signup";
 
@@ -25,22 +29,11 @@ import UniversityProfile from "./pages/university/UniversityProfile";
 // Quiz Page
 import TakeQuiz from "./pages/student/takeQuiz";
 
-// Small UX helpers / guards
+// Utilities
 import RequireProfileComplete from "./components/RequireProfileComplete";
 import { Toaster } from "react-hot-toast";
-
-// Project-wide context provider (keeps old change)
 import { ProjectsProvider } from "./context/ProjectsContext";
 
-/**
- * Merged App
- * - ProjectsProvider wraps the app so all pages can use ProjectsContext.
- * - RequireProfileComplete protects student/university areas (except the profile pages
- *   which must be accessible so new users can complete them).
- * - Toaster configured centrally.
- *
- * If any import path is different in your repo (case-sensitive), adjust imports accordingly.
- */
 function App() {
   return (
     <Router>
@@ -48,9 +41,8 @@ function App() {
         <Toaster
           position="top-center"
           toastOptions={{
-            duration: 4000,
+            duration: 1000,
             style: { fontSize: "16px" },
-            // `action` API differs between versions of react-hot-toast; this is safe
             action: {
               text: "✖",
               onClick: (t) => t.dismiss?.() || null,
@@ -59,11 +51,33 @@ function App() {
         />
 
         <Routes>
-          {/* Auth */}
-          <Route path="/" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          {/* Public pages wrapped in PublicRoute */}
+          <Route
+            path="/"
+            element={
+              <PublicRoute>
+                <LandingPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute>
+                <Signup />
+              </PublicRoute>
+            }
+          />
 
-          {/* Student Routes (protected by profile completion) */}
+          {/* Student Routes (protected) */}
           <Route
             path="/student-dashboard"
             element={
@@ -121,11 +135,11 @@ function App() {
             }
           />
 
-          {/* Profile pages remain accessible so new users can complete them */}
+          {/* Profile Pages (accessible to complete profile) */}
           <Route path="/student-profile" element={<StudentProfile />} />
           <Route path="/university-profile" element={<UniversityProfile />} />
 
-          {/* University Routes (protected by profile completion) */}
+          {/* University Routes (protected) */}
           <Route
             path="/university-dashboard"
             element={
@@ -163,7 +177,7 @@ function App() {
           <Route
             path="*"
             element={
-              <div className="text-center mt-20 text-white text-2xl">
+              <div className="text-center mt-20 text-gray-700 text-2xl">
                 Page Not Found
               </div>
             }

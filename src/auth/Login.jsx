@@ -1,6 +1,7 @@
+// src/auth/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { BASE_URL } from "../config";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
@@ -8,10 +9,15 @@ const Login = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const [passwordVisible, setPasswordVisible] = useState(false); // clearer name
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const togglePassword = (e) => {
+    e?.preventDefault();
+    setPasswordVisible((v) => !v);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,10 +51,9 @@ const Login = () => {
       });
 
       const role = data?.user?.role || data?.role || "";
-      setTimeout(() => {
-        if (role === "university") navigate("/university-dashboard");
-        else navigate("/student-dashboard");
-      }, 700);
+      // navigate to dashboard and replace history so back doesn't return to login
+      if (role === "university") navigate("/university-dashboard", { replace: true });
+      else navigate("/student-dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
     } finally {
@@ -56,26 +61,15 @@ const Login = () => {
     }
   };
 
-  const togglePassword = (e) => {
-    e.preventDefault(); // ensure no accidental form submit
-    setPasswordVisible((v) => !v);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center px-4">
-      <Toaster position="top-right" />
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 sm:p-10">
         <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-            Welcome Back!
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Log in to access your MentorNet dashboard.
-          </p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Welcome Back!</h1>
+          <p className="mt-2 text-sm text-slate-500">Log in to access your MentorNet dashboard.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Email input with left icon */}
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
               <Mail className="w-5 h-5" />
@@ -91,7 +85,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Password input with left lock icon and right show/hide button */}
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
               <Lock className="w-5 h-5" />
@@ -114,11 +107,7 @@ const Login = () => {
               title={passwordVisible ? "Hide password" : "Show password"}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
             >
-              {passwordVisible ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
+              {passwordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
 
